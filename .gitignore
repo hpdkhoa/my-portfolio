@@ -1,0 +1,59 @@
+# ─────────────────────────────────────────────────────────────────────────
+# Defensive ignore list for a CLOSED-SOURCE showcase repo.
+# The point of this repo is to publish writeups WITHOUT publishing source,
+# secrets, or data. This list makes it hard to leak any of that by accident.
+# ─────────────────────────────────────────────────────────────────────────
+
+# Secrets & environment — NEVER commit
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.p12
+*.pfx
+secrets*
+credentials*
+*token*
+*apikey*
+*api_key*
+
+# Proprietary source (do not vendor the real implementations into this repo)
+/hieuluat-src/
+/gen-system-src/
+*.go            # gen-system is Go; keep its source out of the showcase
+# (Python snippets in /snippets are intentional and small; the real HieuLuat
+#  source should never be placed in this repo — keep it in its private repo.)
+
+# Data — legal corpus, embeddings, eval inputs, dumps
+*.sqlite
+*.sqlite3
+*.db
+*.dump
+*.bak
+/data/
+/bk_data/
+/bk_data_2/
+*.parquet
+*.pkl
+*.npy
+*.npz
+embeddings/
+corpus/
+
+# Build / deps / caches
+__pycache__/
+*.pyc
+.venv/
+venv/
+node_modules/
+dist/
+build/
+.cache/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp

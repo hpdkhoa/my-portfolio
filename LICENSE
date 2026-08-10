@@ -1,0 +1,28 @@
+Portfolio Content License
+=========================
+
+Copyright (c) 2026. All rights reserved.
+
+This repository is a PORTFOLIO SHOWCASE. It contains two kinds of material with
+different terms:
+
+1. WRITEUPS, ARCHITECTURE DOCUMENTS, AND SNIPPETS (the contents of /writeups,
+   /projects/*/README.md, and /snippets):
+   These are shared publicly for the purpose of portfolio review and technical
+   discussion. You may read, reference, and quote them with attribution. The
+   runnable snippets in /snippets are provided "as is" for illustration and may
+   be used and adapted freely for learning purposes.
+
+2. THE UNDERLYING PRODUCTS (HieuLuat and gen-system):
+   The implementations, source code, prompts, configuration, datasets, and any
+   other production materials of HieuLuat and gen-system are PROPRIETARY and are
+   NOT included in this repository. No license to those works is granted by this
+   repository. The architecture descriptions here do not constitute a release of
+   the underlying source.
+
+THE MATERIALS IN THIS REPOSITORY ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY
+KIND, EXPRESS OR IMPLIED. THE AUTHOR IS NOT LIABLE FOR ANY CLAIM, DAMAGES, OR
+OTHER LIABILITY ARISING FROM THE USE OF THESE MATERIALS.
+
+For deeper technical detail, including material that may be shared under NDA,
+please get in touch.
