@@ -11,7 +11,7 @@
 
 - **Releases shipped:** <!--stat:gen_releases-->23<!--/stat--> (solo, since 11/2025)
 - **Engine:** Go — <!--stat:gen_go_files-->318<!--/stat--> source files, <!--stat:gen_go_loc-->58,933<!--/stat--> lines
-- **Languages analyzed:** Go, TypeScript, Python, COBOL/CICS, CA Gen — exact symbol resolution, call graphs, CFGs
+- **Languages analyzed:** Go, Java, TypeScript, Python, COBOL/CICS, CA Gen — exact symbol resolution, call graphs, CFGs
 - **Inference:** role-split local models via Ollama on a single RTX 4060 Ti 16 GB — **qwen3:14b** planner + **qwen2.5-coder:14b** coder (≈9 GB each; deliberate VRAM-contention management) — with a measured quantization study (Q4/Q5/Q8) on DeepSeek-Coder-V2 16B
 - **Quality gate:** 11 benchmark suites, frozen baselines, deterministic runs (temp 0, fixed seed)
 
