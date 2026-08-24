@@ -12,7 +12,7 @@
 
 I'm Khoa. I spent a year at National Australia Bank and two and a half years at FPT Software as a solution architect, migrating legacy systems to cloud-native architectures. The recurring problem was never the target design — it was that nobody could say for certain what the old system actually did.
 
-Since November 2025 I've been building my own systems full time: a Go engine that reads legacy code and generates verified replacements, and a Vietnamese legal RAG system that refuses to answer without citing the law. Both follow one principle — **measure it, don't assume it.**
+Since November 2025 I've been building my own systems full time: a Go engine that reads old code and generates verified replacements, and a Vietnamese legal RAG system that refuses to answer without citing the law. Both follow one principle — **measure it, don't assume it.**
 
 ---
 
