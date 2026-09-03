@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reproducible Benchmarking &amp; Regression Gating</title>
+<script>
+window.MathJax={tex:{inlineMath:[['\\\\(','\\\\)']],displayMath:[['$$','$$'],['\\\\[','\\\\]']],processEscapes:true,tags:'none'},
+options:{skipHtmlTags:['script','noscript','style','textarea','pre','code']}};
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-mml-chtml.min.js" async></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,500&family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#FAF8F3; --paper-2:#F3EFE6; --paper-3:#ECE6D9;
+  --ink:#1F232B; --ink-soft:#3C424E; --ink-faint:#6B7280;
+  --rule:#DAD3C4; --rule-soft:#E7E1D4;
+  --teal:#0F766E; --teal-deep:#0B544E; --teal-tint:#E2F1EF;
+  --amber:#B45309; --amber-tint:#FBEFDD; --rose:#9F1239;
+  --code-bg:#F6F2E9; --code-ink:#2A2F38;
+  --shadow:rgba(40,34,20,0.10);
+  --maxw:760px; --rail:308px;
+}
+html[data-theme="dark"]{
+  --paper:#15171C; --paper-2:#1C1F26; --paper-3:#232732;
+  --ink:#E9E6DD; --ink-soft:#C3C0B7; --ink-faint:#9AA0AB;
+  --rule:#333845; --rule-soft:#2A2E38;
+  --teal:#4FD1C5; --teal-deep:#7DE3D8; --teal-tint:#16322F;
+  --amber:#F0A85A; --amber-tint:#3A2A12; --rose:#FB7185;
+  --code-bg:#1B1E25; --code-ink:#D8D5CC;
+  --shadow:rgba(0,0,0,0.45);
+}
+*{box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{
+  margin:0; background:var(--paper);
+  background-image:linear-gradient(var(--rule-soft) 1px,transparent 1px),
+                   linear-gradient(90deg,var(--rule-soft) 1px,transparent 1px);
+  background-size:28px 28px; background-attachment:fixed;
+  color:var(--ink); font-family:'Spectral',Georgia,serif;
+  font-size:19px; line-height:1.72;
+  -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+}
+.read-hairline{position:fixed;top:0;left:0;height:3px;width:0;z-index:90;
+  background:linear-gradient(90deg,var(--teal),var(--amber));transition:width .15s ease;}
+.shell{display:flex;min-height:100vh;max-width:1400px;margin:0 auto;}
+
+/* ---- Left rail ---- */
+.rail{width:var(--rail);flex:0 0 var(--rail);position:sticky;top:0;height:100vh;
+  overflow-y:auto;padding:28px 22px 60px 26px;
+  background:var(--paper-2);border-right:1px solid var(--rule);}
+.brandmark{display:flex;align-items:center;gap:11px;margin-bottom:18px;}
+.brandmark .bt{font-family:'Inter',sans-serif;font-weight:700;font-size:14px;
+  line-height:1.05;letter-spacing:.02em;color:var(--ink);text-transform:uppercase;}
+.kicker{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--teal);font-weight:600;margin-bottom:6px;}
+.title{font-family:'Inter',sans-serif;font-weight:700;font-size:21px;line-height:1.2;
+  margin:0 0 8px;color:var(--ink);}
+.subtitle{font-size:13.5px;line-height:1.5;color:var(--ink-faint);
+  font-family:'Inter',sans-serif;margin:0 0 18px;}
+
+.progress-card{background:var(--paper);border:1px solid var(--rule);border-radius:12px;
+  padding:13px 14px;margin-bottom:14px;}
+.progress-top{display:flex;justify-content:space-between;align-items:baseline;}
+.progress-label{font-family:'Inter',sans-serif;font-size:11px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--ink-faint);font-weight:600;}
+.progress-pct{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:15px;color:var(--teal);}
+.progress-bar{height:6px;background:var(--paper-3);border-radius:6px;margin:9px 0 4px;overflow:hidden;}
+.progress-fill{height:100%;width:0;background:linear-gradient(90deg,var(--teal),var(--amber));
+  border-radius:6px;transition:width .25s ease;}
+
+/* ---- Read-aloud launcher + controls ---- */
+.ra-launch{display:flex;align-items:center;gap:11px;width:100%;text-align:left;cursor:pointer;
+  background:var(--teal-tint);border:1px solid var(--teal);color:var(--teal-deep);
+  border-radius:12px;padding:12px 14px;margin-bottom:8px;font-family:'Inter',sans-serif;
+  font-weight:600;font-size:14px;transition:background .15s,transform .1s;}
+.ra-launch:hover{background:var(--teal);color:#fff;}
+.ra-launch:hover svg{stroke:#fff;}
+.ra-launch[aria-pressed="true"]{background:var(--teal);color:#fff;}
+.ra-launch[aria-pressed="true"] svg{stroke:#fff;}
+.ra-launch svg{stroke:var(--teal-deep);flex:0 0 auto;}
+.ra-launch-sub{display:block;font-weight:400;font-size:11.5px;opacity:.8;margin-top:2px;}
+.ra-unsupported{display:none;font-family:'Inter',sans-serif;font-size:12px;color:var(--rose);
+  margin-bottom:10px;padding:8px 10px;border:1px dashed var(--rose);border-radius:8px;}
+.ra-panel{display:none;background:var(--paper);border:1px solid var(--rule);border-radius:12px;
+  padding:12px 13px;margin-bottom:14px;}
+.ra-panel.open{display:block;}
+.ra-row{display:flex;align-items:center;gap:8px;margin-bottom:9px;}
+.ra-btn{flex:0 0 auto;width:38px;height:38px;border-radius:9px;border:1px solid var(--rule);
+  background:var(--paper-2);color:var(--ink);display:flex;align-items:center;justify-content:center;
+  cursor:pointer;transition:background .12s;}
+.ra-btn:hover{background:var(--teal-tint);}
+.ra-btn.primary{background:var(--teal);border-color:var(--teal);color:#fff;}
+.ra-btn.primary:hover{background:var(--teal-deep);}
+.ra-btn svg{stroke:currentColor;}
+.ra-status{font-family:'Inter',sans-serif;font-size:12px;color:var(--ink-faint);flex:1;}
+.ra-ctl{display:flex;flex-direction:column;gap:3px;margin-top:6px;}
+.ra-ctl label{font-family:'Inter',sans-serif;font-size:11px;letter-spacing:.05em;
+  text-transform:uppercase;color:var(--ink-faint);font-weight:600;}
+.ra-ctl select,.ra-ctl input[type=range]{width:100%;font-family:'Inter',sans-serif;font-size:13px;
+  background:var(--paper-2);color:var(--ink);border:1px solid var(--rule);border-radius:7px;padding:5px 7px;}
+.ra-rate-val{font-family:'JetBrains Mono',monospace;color:var(--teal);font-weight:600;}
+
+/* ---- TOC ---- */
+nav .toc{list-style:none;margin:6px 0 0;padding:0;}
+.toc li{margin:0;}
+.toc a{display:block;text-decoration:none;color:var(--ink-soft);font-family:'Inter',sans-serif;
+  font-size:13.5px;line-height:1.35;padding:6px 10px;border-radius:8px;border-left:2px solid transparent;
+  transition:background .12s,color .12s,border-color .12s;}
+.toc a:hover{background:var(--paper);color:var(--ink);}
+.toc a.lvl-3{padding-left:22px;font-size:12.5px;color:var(--ink-faint);}
+.toc a.active{background:var(--teal-tint);color:var(--teal-deep);border-left-color:var(--teal);font-weight:600;}
+
+.guide-switch{margin:16px 0 6px;border-top:1px solid var(--rule);padding-top:14px;}
+.guide-switch .gs-label{font-family:'Inter',sans-serif;font-size:11px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--ink-faint);font-weight:600;margin-bottom:7px;}
+.guide-switch a{display:block;font-family:'Inter',sans-serif;font-size:13px;text-decoration:none;
+  color:var(--ink-soft);padding:6px 9px;border-radius:7px;margin-bottom:3px;border:1px solid transparent;}
+.guide-switch a:hover{background:var(--paper);}
+.guide-switch a.current{background:var(--teal-tint);color:var(--teal-deep);
+  border-color:var(--teal);font-weight:600;}
+
+.rail-foot{margin-top:18px;font-family:'Inter',sans-serif;font-size:11.5px;color:var(--ink-faint);line-height:1.5;}
+.rail-foot button{background:none;border:none;color:var(--rose);cursor:pointer;font:inherit;text-decoration:underline;padding:0;}
+
+/* ---- Top-right toggles ---- */
+.topbar{position:fixed;top:16px;right:18px;z-index:80;display:flex;gap:8px;}
+.icon-btn{width:40px;height:40px;border-radius:10px;border:1px solid var(--rule);
+  background:var(--paper-2);color:var(--ink);cursor:pointer;display:flex;align-items:center;
+  justify-content:center;box-shadow:0 2px 8px var(--shadow);transition:background .12s;}
+.icon-btn:hover{background:var(--teal-tint);}
+.icon-btn svg{stroke:currentColor;}
+
+/* ---- Main column ---- */
+.main{flex:1;min-width:0;padding:64px 56px 120px;display:flex;justify-content:center;}
+.doc{max-width:var(--maxw);width:100%;}
+.doc h1{font-family:'Inter',sans-serif;font-weight:700;font-size:38px;line-height:1.12;
+  letter-spacing:-.015em;margin:0 0 6px;color:var(--ink);}
+.doc h2{font-family:'Inter',sans-serif;font-weight:700;font-size:27px;line-height:1.18;
+  margin:54px 0 14px;padding-top:22px;border-top:1px solid var(--rule);color:var(--ink);
+  letter-spacing:-.01em;scroll-margin-top:24px;}
+.doc h3{font-family:'Inter',sans-serif;font-weight:600;font-size:20px;line-height:1.25;
+  margin:34px 0 10px;color:var(--teal-deep);scroll-margin-top:24px;}
+.doc h2 .secnum{color:var(--teal);font-family:'JetBrains Mono',monospace;font-size:.7em;
+  font-weight:700;margin-right:.5em;}
+.doc p{margin:0 0 18px;}
+.doc blockquote{margin:22px 0;padding:14px 20px;background:var(--amber-tint);
+  border-left:4px solid var(--amber);border-radius:0 10px 10px 0;font-size:18px;color:var(--ink-soft);}
+.doc blockquote p:last-child{margin-bottom:0;}
+.doc blockquote strong{color:var(--amber);}
+.doc ul,.doc ol{margin:0 0 18px;padding-left:26px;}
+.doc li{margin:0 0 9px;}
+.doc li::marker{color:var(--teal);}
+.doc a{color:var(--teal-deep);text-decoration:underline;text-decoration-color:var(--rule);text-underline-offset:2px;}
+.doc a:hover{text-decoration-color:var(--teal);}
+.doc strong{color:var(--ink);font-weight:600;}
+.doc em{color:var(--ink-soft);}
+.doc hr{border:none;border-top:1px solid var(--rule);margin:40px 0;}
+.doc code{font-family:'JetBrains Mono',monospace;font-size:.86em;background:var(--code-bg);
+  color:var(--code-ink);padding:.12em .4em;border-radius:5px;border:1px solid var(--rule-soft);}
+.doc pre{background:var(--code-bg);border:1px solid var(--rule);border-radius:12px;
+  padding:18px 20px;overflow-x:auto;margin:22px 0;box-shadow:inset 0 1px 4px var(--shadow);}
+.doc pre code{background:none;border:none;padding:0;font-size:14.5px;line-height:1.6;color:var(--code-ink);}
+.doc table{width:100%;border-collapse:collapse;margin:24px 0;font-size:15.5px;
+  font-family:'Inter',sans-serif;display:block;overflow-x:auto;}
+.doc th{background:var(--teal-tint);color:var(--teal-deep);font-weight:700;text-align:left;
+  padding:10px 13px;border:1px solid var(--rule);}
+.doc td{padding:10px 13px;border:1px solid var(--rule);vertical-align:top;color:var(--ink-soft);}
+.doc tr:nth-child(even) td{background:var(--paper-2);}
+.doc td strong{color:var(--ink);}
+
+/* read-aloud sentence highlight */
+.ra-sent{cursor:pointer;border-radius:3px;transition:background .1s;}
+.ra-sent.speaking{background:var(--teal-tint);box-shadow:0 0 0 3px var(--teal-tint);}
+html[data-theme="dark"] .ra-sent.speaking{background:#1d3a36;box-shadow:0 0 0 3px #1d3a36;}
+.ra-active-block{outline:2px dashed var(--teal);outline-offset:6px;border-radius:6px;}
+
+/* mobile */
+.menu-toggle{display:none;}
+.menu-scrim{display:none;}
+@media (max-width:1024px){
+  .rail{position:fixed;left:0;top:0;z-index:70;transform:translateX(-104%);transition:transform .25s ease;
+    box-shadow:0 0 40px var(--shadow);}
+  .rail.open{transform:translateX(0);}
+  .menu-scrim{display:block;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:60;opacity:0;
+    pointer-events:none;transition:opacity .2s;}
+  .menu-scrim.open{opacity:1;pointer-events:auto;}
+  .menu-toggle{display:flex;position:fixed;top:16px;left:16px;z-index:80;width:44px;height:44px;
+    border-radius:10px;border:1px solid var(--rule);background:var(--paper-2);color:var(--ink);
+    align-items:center;justify-content:center;box-shadow:0 2px 8px var(--shadow);cursor:pointer;}
+  .menu-toggle svg{stroke:currentColor;}
+  .main{padding:74px 22px 100px;}
+  .doc h1{font-size:30px;}
+  body{font-size:18px;}
+}
+</style>
+</head>
+<body>
+<div class="read-hairline" id="readHairline"></div>
+
+<button class="menu-toggle" id="menuToggle" aria-label="Open contents" onclick="window.__openMenu()">
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+</button>
+<div class="menu-scrim" id="menuScrim"></div>
+
+<div class="topbar">
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle light/dark theme" onclick="window.__toggleTheme()">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="themeIcon"></svg>
+  </button>
+</div>
+
+<div class="shell">
+  <aside class="rail" id="rail">
+    <div class="brandmark">
+      <svg width="34" height="34" viewBox="0 0 40 40" fill="none">
+        <rect x="1" y="1" width="38" height="38" rx="9" fill="#0F766E"/>
+        <circle cx="11" cy="11" r="3" fill="#FAF8F3"/><circle cx="29" cy="11" r="3" fill="#FAF8F3"/>
+        <circle cx="11" cy="29" r="3" fill="#FAF8F3"/><circle cx="29" cy="29" r="3" fill="#5EE6D5"/>
+        <circle cx="20" cy="20" r="3.4" fill="#B45309"/>
+        <path d="M11 11L20 20L29 11M11 29L20 20L29 29M20 11.5V28.5" stroke="#FAF8F3" stroke-width="1.5" opacity="0.8"/>
+      </svg>
+      <span class="bt">Engineering<br>Writeups</span>
+    </div>
+    <div class="kicker">Writeup · 3 of 3</div>
+    <h1 class="title">Reproducible Benchmarking &amp; Regression Gating</h1>
+    <p class="subtitle">Architecture and measured results — the polished web version of the portfolio writeups.</p>
+
+    <div class="progress-card">
+      <div class="progress-top"><span class="progress-label">Reading progress</span><span class="progress-pct" id="progPct">0%</span></div>
+      <div class="progress-bar"><div class="progress-fill" id="progFill"></div></div>
+    </div>
+
+    <button class="ra-launch" id="raLaunch" type="button" aria-pressed="false">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 010 7M19 5a9 9 0 010 14"/></svg>
+      <span>Read aloud<span class="ra-launch-sub" id="raLaunchSub">Listen sentence by sentence</span></span>
+    </button>
+    <div class="ra-unsupported" id="raUnsupported">Your browser doesn't support speech synthesis.</div>
+
+    <div class="ra-panel" id="raPanel">
+      <div class="ra-row">
+        <button class="ra-btn" id="raPrev" aria-label="Previous sentence"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M19 20L9 12l10-8v16zM5 19V5"/></svg></button>
+        <button class="ra-btn primary" id="raPlay" aria-label="Play / pause"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M6 4l14 8-14 8V4z" id="raPlayIcon"/></svg></button>
+        <button class="ra-btn" id="raNext" aria-label="Next sentence"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M5 4l10 8-10 8V4zM19 5v14"/></svg></button>
+        <button class="ra-btn" id="raStop" aria-label="Stop"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="5" y="5" width="14" height="14" rx="2"/></svg></button>
+        <span class="ra-status" id="raStatus">Idle</span>
+      </div>
+      <div class="ra-ctl">
+        <label for="raRate">Speed <span class="ra-rate-val" id="raRateVal">1.00×</span></label>
+        <input type="range" id="raRate" min="0.5" max="2" step="0.05" value="1">
+      </div>
+      <div class="ra-ctl">
+        <label for="raVoice">Voice</label>
+        <select id="raVoice"></select>
+      </div>
+    </div>
+
+    <nav><ul class="toc" id="toc"></ul></nav>
+
+    <div class="guide-switch">
+      <div class="gs-label">Portfolio writeups</div>
+      <a href="01-hieuluat-retrieval-optimization.html">1 · Legal RAG Retrieval</a><a href="02-gen-system-inference-optimization.html">2 · Local-LLM Inference</a><a href="03-reproducible-benchmarking.html" class="current">3 · Benchmarking Method</a>
+      <div class="gs-label" style="margin-top:14px;">Related guides</div>
+      <a href="01_NVIDIA_Landing_Guide.html">Landing NVIDIA</a><a href="02_CUDA_GPU_Optimization_Guide.html">CUDA & GPU</a><a href="04_LeetCode_Coding_Interview_Guide.html">Beat the Coding Test</a>
+    </div>
+
+    <div class="rail-foot">
+      Theme &amp; position save in this browser.
+      <br><button id="resetBtn">Reset reading position</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <article class="doc" id="doc">
+<h1 id="reproducible-benchmarking-regression-gating">Reproducible Benchmarking &amp; Regression Gating</h1>
+<h3 id="the-methodology-that-makes-every-other-result-in-this-repo-trustworthy">The methodology that makes every other result in this repo trustworthy</h3>
+<blockquote>
+<p><strong>Why this matters:</strong> an optimization without a before-number is a guess, and a benchmark you
+can't reproduce is an anecdote. Both HieuLuat and gen-system are tuned against fixed,
+repeatable measurements rather than impressions. This writeup is the methodology those
+results rest on — and, honestly, it's the habit that separates engineers who <em>claim</em> speedups
+from engineers who <em>prove</em> them.</p>
+</blockquote>
+<hr>
+<h2 id="1-the-principle"><span class="secnum">1</span>The principle</h2>
+<p>Performance work is only as credible as its measurement. Three rules govern all the optimization in this repo:</p>
+<ol>
+<li><strong>Measure before <em>and</em> after, always.</strong> Every change is reported as a delta against a recorded baseline. No baseline, no claim.</li>
+<li><strong>Make runs deterministic where possible.</strong> Reproducibility is what turns a measurement into evidence — you're measuring the system, not sampling noise.</li>
+<li><strong>Anchor quality to an objective metric.</strong> Speed at the cost of silent quality loss is a regression, so quality must be measured alongside performance, not assumed constant.</li>
+</ol>
+<h2 id="2-frozen-baselines"><span class="secnum">2</span>Frozen baselines</h2>
+<p>A baseline is a <strong>recorded, version-tagged measurement</strong> of the system before a change — captured under fixed conditions and stored, not re-derived from memory. Every optimization in the two projects is reported against one. This is what lets a statement like "this change improved throughput" be checked rather than trusted.</p>
+<h2 id="3-regression-gates"><span class="secnum">3</span>Regression gates</h2>
+<p>The stronger version of "measure after" is to make regressions <strong>fail automatically</strong>. In gen-system, a change that lowers the <strong>compile-and-test pass rate</strong> is caught by a gate, not discovered weeks later in production. The gate treats a quality drop as a build failure. This is unusual and valuable: it means performance work can proceed aggressively <em>because</em> a quality regression can't slip through silently.</p>
+<p>The same discipline applies to HieuLuat's <strong>labeled eval suites</strong> (citation-QA, definition-lookup, and others): an optimization to the retrieval path is accepted only if it holds or improves the measured quality on those fixed cases. A faster index that quietly drops recall on the eval set is rejected, not shipped.</p>
+<h2 id="4-determinism"><span class="secnum">4</span>Determinism</h2>
+<p>Where the workload allows it, runs are made deterministic — for example, gen-system generates at temperature 0 with a fixed seed. The payoff is that benchmark numbers are stable across runs, so a delta reflects the change you made, not stochastic variation. (For genuinely stochastic components, the answer is repeated runs and reporting the distribution, not a single number.)</p>
+<h2 id="5-the-objective-quality-advantage"><span class="secnum">5</span>The objective-quality advantage</h2>
+<p>The most useful thing about both projects' metrics is that quality is <strong>objective</strong>, not proxied:</p>
+<ul>
+<li><strong>gen-system:</strong> does the generated code <em>compile and pass tests</em>? A binary, domain-meaningful signal.</li>
+<li><strong>HieuLuat:</strong> does the answer stay grounded and cite correctly on labeled legal QA cases?</li>
+</ul>
+<p>This matters most for <strong>quantization and approximation</strong> work, where the whole risk is silent quality loss. Most inference write-ups can only show a perplexity curve and hope it correlates with usefulness. Here, the quality cost of a 4-bit quant shows up directly as a drop in pass rate — so the trade-off is <em>visible</em> and the decision is <em>defensible</em>.</p>
+<h2 id="6-how-this-shows-up-in-the-other-writeups"><span class="secnum">6</span>How this shows up in the other writeups</h2>
+<ul>
+<li>The <a href="01-hieuluat-retrieval-optimization.md">retrieval optimization</a> recall-vs-latency curves and reranker quality lifts are all measured against the eval suites under this methodology.</li>
+<li>The <a href="02-gen-system-inference-optimization.md">inference optimization</a> tokens/sec, VRAM, and compile-pass-rate numbers all run through the benchmark harness with frozen baselines and gates.</li>
+</ul>
+<h2 id="7-what-id-want-a-reader-to-take-from-this"><span class="secnum">7</span>What I'd want a reader to take from this</h2>
+<p>Reproducible measurement isn't bureaucracy — it's what makes everything else in this repo <em>evidence</em> instead of <em>assertion</em>. I build the baseline first, gate on an objective quality metric, and keep runs deterministic, so that when I say "N× faster with quality held," there's a number behind every word of it.</p>
+<p><em>Note: this writeup describes methodology; specific figures live in the project-specific writeups and depend on hardware. The methodology is the transferable part.</em></p>
+    </article>
+  </main>
+</div>
+
+<script>
+/* ---------------- Theme ---------------- */
+(function(){
+  var KEY='guide-theme';
+  var saved=localStorage.getItem(KEY);
+  if(saved){document.documentElement.setAttribute('data-theme',saved);}
+  window.__toggleTheme=function(){
+    var cur=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';
+    document.documentElement.setAttribute('data-theme',cur);
+    localStorage.setItem(KEY,cur);
+    document.getElementById('themeIcon').innerHTML=cur==='dark'?SUN:MOON;
+  };
+  var MOON='<path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>';
+  var SUN='<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>';
+  window.__themeIcons={MOON:MOON,SUN:SUN};
+})();
+
+document.addEventListener('DOMContentLoaded',function(){
+  var doc=document.getElementById('doc');
+
+  /* theme icon initial */
+  var ti=document.getElementById('themeIcon');
+  var dark=document.documentElement.getAttribute('data-theme')==='dark';
+  ti.innerHTML=dark?window.__themeIcons.SUN:window.__themeIcons.MOON;
+
+  /* ---------------- Build TOC ---------------- */
+  var heads=doc.querySelectorAll('h2,h3');
+  var toc=document.getElementById('toc');
+  heads.forEach(function(h,i){
+    if(!h.id) h.id='sec-'+i;
+    var li=document.createElement('li');
+    var a=document.createElement('a');
+    a.href='#'+h.id;
+    // Clean label: if the heading has a .secnum prefix, render "N · rest"
+    var sn=h.querySelector('.secnum');
+    if(sn){
+      var rest=h.textContent.slice(sn.textContent.length).replace(/^\s+/,'');
+      a.textContent=sn.textContent+' · '+rest;
+    } else {
+      a.textContent=h.textContent;
+    }
+    a.className=h.tagName==='H3'?'lvl-3':'lvl-2';
+    a.addEventListener('click',function(){closeMenu();});
+    li.appendChild(a); toc.appendChild(li);
+  });
+
+  /* ---------------- Reading progress + active TOC ---------------- */
+  var fill=document.getElementById('progFill');
+  var pct=document.getElementById('progPct');
+  var hairline=document.getElementById('readHairline');
+  var tocLinks=Array.prototype.slice.call(toc.querySelectorAll('a'));
+  var PKEY='guide-scroll-'+location.pathname.split('/').pop();
+
+  function onScroll(){
+    var st=window.scrollY||document.documentElement.scrollTop;
+    var docH=document.documentElement.scrollHeight-window.innerHeight;
+    var p=docH>0?Math.min(100,Math.round(st/docH*100)):0;
+    fill.style.width=p+'%'; pct.textContent=p+'%'; hairline.style.width=p+'%';
+    localStorage.setItem(PKEY,st);
+    // active heading
+    var cur=null;
+    heads.forEach(function(h){ if(h.getBoundingClientRect().top<140) cur=h.id; });
+    tocLinks.forEach(function(a){
+      a.classList.toggle('active',a.getAttribute('href')==='#'+cur);
+    });
+  }
+  window.addEventListener('scroll',onScroll,{passive:true});
+  window.addEventListener('resize',onScroll);
+  onScroll();
+
+  var savedScroll=localStorage.getItem(PKEY);
+  if(savedScroll&&+savedScroll>200){ window.scrollTo(0,+savedScroll); }
+
+  document.getElementById('resetBtn').addEventListener('click',function(){
+    localStorage.removeItem(PKEY); window.scrollTo(0,0);
+  });
+
+  /* ---------------- Mobile menu ---------------- */
+  var rail=document.getElementById('rail');
+  var scrim=document.getElementById('menuScrim');
+  window.__openMenu=function(){rail.classList.add('open');scrim.classList.add('open');};
+  function closeMenu(){rail.classList.remove('open');scrim.classList.remove('open');}
+  window.__closeMenu=closeMenu;
+  scrim.addEventListener('click',closeMenu);
+
+  /* ================= READ ALOUD (Web Speech API) ================= */
+  var synth=window.speechSynthesis;
+  var launch=document.getElementById('raLaunch');
+  var panel=document.getElementById('raPanel');
+  var unsupported=document.getElementById('raUnsupported');
+
+  if(!synth){
+    launch.style.display='none';
+    unsupported.style.display='block';
+    return;
+  }
+
+  // Split the document into sentence spans for highlighting.
+  // We walk block elements (p, li, h2, h3, blockquote) and wrap sentences.
+  var blocks=doc.querySelectorAll('p, li, blockquote');
+  var sentences=[]; // {el, text}
+  blocks.forEach(function(bl){
+    // skip code blocks entirely
+    if(bl.closest('pre')) return;
+    wrapSentences(bl);
+  });
+  function wrapSentences(bl){
+    var raw=bl.textContent.replace(/\s+/g,' ').trim();
+    if(!raw) return;
+    // If the block contains inline markup (bold/italic/code/links), DON'T
+    // flatten it — that would strip the formatting. Instead treat the whole
+    // block as a single read-aloud unit, preserving its HTML. We add a
+    // transparent wrapper span only for highlight bookkeeping.
+    var hasMarkup = bl.querySelector('strong,em,code,a,b,i') !== null;
+    if(hasMarkup){
+      bl.setAttribute('data-ra-block','1');
+      bl.classList.add('ra-sent');
+      bl.dataset.idx=sentences.length;
+      bl.addEventListener('click',function(){ startFrom(+this.dataset.idx); });
+      sentences.push({el:bl,text:raw});
+      return;
+    }
+    // Plain-text block: split into sentences for finer highlighting.
+    // This split NEVER drops characters.
+    var parts=[], buf='';
+    for(var i=0;i<raw.length;i++){
+      var c=raw[i]; buf+=c;
+      if(c==='.'||c==='!'||c==='?'){
+        while(i+1<raw.length && '"\u201D\u2019\')]'.indexOf(raw[i+1])>=0){ buf+=raw[++i]; }
+        parts.push(buf); buf='';
+      }
+    }
+    if(buf.trim()) parts.push(buf);
+    if(!parts.length) parts=[raw];
+    bl.setAttribute('data-ra-block','1');
+    bl.innerHTML='';
+    parts.forEach(function(s){
+      s=s.trim(); if(!s) return;
+      var span=document.createElement('span');
+      span.className='ra-sent';
+      span.textContent=s+' ';
+      span.dataset.idx=sentences.length;
+      span.addEventListener('click',function(){ startFrom(+this.dataset.idx); });
+      bl.appendChild(span);
+      sentences.push({el:span,text:s});
+    });
+  }
+
+  var idx=0, playing=false, paused=false;
+  var rate=parseFloat(localStorage.getItem('guide-ra-rate')||'1');
+  var voiceURI=localStorage.getItem('guide-ra-voice')||'';
+
+  var statusEl=document.getElementById('raStatus');
+  var rateInput=document.getElementById('raRate');
+  var rateVal=document.getElementById('raRateVal');
+  var voiceSel=document.getElementById('raVoice');
+  rateInput.value=rate; rateVal.textContent=rate.toFixed(2)+'×';
+
+  function loadVoices(){
+    var voices=synth.getVoices();
+    voiceSel.innerHTML='';
+    var auto=document.createElement('option'); auto.value=''; auto.textContent='Automatic';
+    voiceSel.appendChild(auto);
+    voices.forEach(function(v){
+      var o=document.createElement('option');
+      o.value=v.voiceURI; o.textContent=v.name+' ('+v.lang+')';
+      if(v.voiceURI===voiceURI) o.selected=true;
+      voiceSel.appendChild(o);
+    });
+  }
+  loadVoices();
+  if(synth.onvoiceschanged!==undefined) synth.onvoiceschanged=loadVoices;
+
+  function pickVoice(){
+    var voices=synth.getVoices();
+    if(voiceURI){ var f=voices.filter(function(v){return v.voiceURI===voiceURI;}); if(f[0]) return f[0]; }
+    var en=voices.filter(function(v){return /^en(-|$)/i.test(v.lang);});
+    return en[0]||voices[0]||null;
+  }
+
+  function highlight(i){
+    sentences.forEach(function(s,j){
+      s.el.classList.toggle('speaking',j===i);
+    });
+    document.querySelectorAll('.ra-active-block').forEach(function(b){b.classList.remove('ra-active-block');});
+    if(sentences[i]){
+      var blk=sentences[i].el.closest('[data-ra-block]');
+      if(blk) blk.classList.add('ra-active-block');
+      var r=sentences[i].el.getBoundingClientRect();
+      if(r.top<80||r.bottom>window.innerHeight-80){
+        sentences[i].el.scrollIntoView({behavior:'smooth',block:'center'});
+      }
+    }
+  }
+
+  function speakCurrent(){
+    if(idx>=sentences.length){ stop(); return; }
+    var u=new SpeechSynthesisUtterance(sentences[idx].text);
+    u.rate=rate; var v=pickVoice(); if(v) u.voice=v;
+    u.onend=function(){
+      if(playing&&!paused){ idx++; highlight(idx); speakCurrent(); }
+    };
+    highlight(idx);
+    synth.speak(u);
+  }
+
+  function play(){
+    if(!sentences.length) return;
+    synth.cancel();
+    playing=true; paused=false;
+    setUI();
+    speakCurrent();
+  }
+  function startFrom(i){ idx=i; play(); }
+  function pause(){
+    if(playing&&!paused){ paused=true; synth.pause(); setUI(); }
+    else if(playing&&paused){ paused=false; synth.resume(); setUI(); }
+  }
+  function stop(){
+    playing=false; paused=false; synth.cancel();
+    sentences.forEach(function(s){s.el.classList.remove('speaking');});
+    document.querySelectorAll('.ra-active-block').forEach(function(b){b.classList.remove('ra-active-block');});
+    setUI();
+  }
+  function prev(){ idx=Math.max(0,idx-1); if(playing) play(); else highlight(idx); }
+  function next(){ idx=Math.min(sentences.length-1,idx+1); if(playing) play(); else highlight(idx); }
+
+  function setUI(){
+    launch.setAttribute('aria-pressed',playing?'true':'false');
+    document.getElementById('raPlayIcon').innerHTML =
+      (playing&&!paused)?ICON_PAUSE:ICON_PLAY;
+    statusEl.textContent = !playing ? 'Idle' :
+       (paused?'Paused':('Reading '+(idx+1)+' / '+sentences.length));
+  }
+
+  var ICON_PLAY='<path d="M6 4l14 8-14 8V4z"/>';
+  var ICON_PAUSE='<path d="M7 4h4v16H7zM13 4h4v16h-4z"/>';
+
+  launch.addEventListener('click',function(){
+    panel.classList.toggle('open');
+    if(panel.classList.contains('open')&&!playing){ /* just open */ }
+  });
+  document.getElementById('raPlay').addEventListener('click',function(){
+    if(!playing) play(); else pause();
+  });
+  document.getElementById('raStop').addEventListener('click',stop);
+  document.getElementById('raPrev').addEventListener('click',prev);
+  document.getElementById('raNext').addEventListener('click',next);
+  rateInput.addEventListener('input',function(){
+    rate=parseFloat(this.value); rateVal.textContent=rate.toFixed(2)+'×';
+    localStorage.setItem('guide-ra-rate',rate);
+    if(playing){ var keep=idx; play(); idx=keep; }
+  });
+  voiceSel.addEventListener('change',function(){
+    voiceURI=this.value; localStorage.setItem('guide-ra-voice',voiceURI);
+    if(playing){ play(); }
+  });
+  // stop speech if the page is hidden/closed
+  window.addEventListener('beforeunload',function(){ synth.cancel(); });
+  setUI();
+});
+</script>
+</body>
+</html>

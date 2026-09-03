@@ -1,53 +1,96 @@
-# gen-system — Local-First Code Intelligence & Generation
+# gen-system: local code understanding and generation
 
-> A code-generation engine that runs entirely locally, pairs **compiler-accurate program
-> analysis** with **local LLMs**, and holds itself to an objective bar: **generated code must
-> compile and pass tests**. It ships with a benchmark harness and regression gating so quality
-> is measured, not assumed. **Source is proprietary; this is the architecture and rationale.**
+> A code generation engine that runs entirely on your own machine. It pairs compiler accurate
+> program analysis with local LLMs, and holds the output to a real bar: the generated code has to
+> build and pass its tests. It ships with a benchmark harness and regression gates, so quality is
+> measured rather than assumed. The source is proprietary. This page covers the architecture and
+> the reasoning.
 
 ---
 
 ## Fast facts
 
-- **Releases shipped:** <!--stat:gen_releases-->23<!--/stat--> (solo, since 11/2025)
-- **Engine:** Go — <!--stat:gen_go_files-->318<!--/stat--> source files, <!--stat:gen_go_loc-->58,933<!--/stat--> lines
-- **Languages analyzed:** Go, Java, TypeScript, Python, COBOL/CICS, CA Gen — exact symbol resolution, call graphs, CFGs
-- **Inference:** role-split local models via Ollama on a single RTX 4060 Ti 16 GB — **qwen3:14b** planner + **qwen2.5-coder:14b** coder (≈9 GB each; deliberate VRAM-contention management) — with a measured quantization study (Q4/Q5/Q8) on DeepSeek-Coder-V2 16B
-- **Quality gate:** 11 benchmark suites, frozen baselines, deterministic runs (temp 0, fixed seed)
+- **Releases shipped:** <!--stat:gen_releases-->23<!--/stat--> since November 2025, working alone
+- **Engine:** Go, <!--stat:gen_go_files--><!--/stat--> source files, <!--stat:gen_go_loc--><!--/stat--> lines
+- **Languages it reads:** Go, COBOL with copybooks, CA Gen, Java, TypeScript, Python. Exact symbol
+  resolution, call graphs, control flow graphs
+- **Inference:** open weight models through Ollama on one RTX 4060 Ti with 16 GB. `qwen3:14b` plans
+  and `qwen2.5-coder:14b` writes code
+- **Quality gate:** 13 benchmark suites, frozen baselines, and repeatable runs at temperature 0
+  with a fixed seed.
+
+Speed and VRAM numbers live in the [inference writeup](../../writeups/02-gen-system-inference-optimization.md),
+where they are generated from measured runs. They are not repeated here, because a copied number
+goes stale the first time you rerun anything.
 
 ## The idea
 
-Most code-generation tooling is a thin wrapper over a remote model and trusts the output. gen-system inverts both: it runs **local-first** (no data leaves the machine), and it treats generation as something to be **verified and benchmarked** rather than trusted. The organizing principle is determinism and measurability — same input, same output, and a quality metric that can't be fudged.
+Most code generation tooling is a thin wrapper around a remote model, and it trusts what comes
+back. This inverts both halves.
+
+It runs locally, so no code leaves the machine. And it treats generation as something to verify and
+measure rather than trust. The organizing principle is that the same input gives the same output,
+and that the quality metric cannot be fudged.
 
 ## Architecture
 
-- **Analysis layer.** Compiler-accurate symbol resolution plus call-graph and control-flow analysis, so the system reasons about real program structure rather than treating code as text.
-- **Generation layer.** Local LLMs via Ollama, with **separate models for planning and for code** (a planner model and a coder model), run at temperature 0 with a fixed seed for **deterministic, reproducible** output. A deterministic-template path exists as an alternative to model generation.
-- **Verification layer.** Generated projects are expected to **build and pass tests** — this is the quality signal the whole system is tuned against.
-- **Benchmark harness.** Frozen baselines and **regression gates**: a change that lowers the compile/test pass rate is caught automatically, not discovered later.
-- **Orchestration.** Robust runtime handling — retries, structured-output constraints, model keep-alive to avoid mid-run reloads — around the model calls.
+**Analysis layer.** Compiler accurate symbol resolution, call graphs, and control flow graphs. The
+system reasons about real program structure instead of treating code as text.
 
-## Design decisions worth defending
+**Generation layer.** Local models through Ollama, with separate models for planning and for code,
+run at temperature 0 with a fixed seed. There is also a deterministic template path that needs no
+model at all.
 
-- **Local-first by default.** Privacy and reproducibility over the convenience of a hosted API. The whole pipeline runs on your hardware.
-- **Determinism (temp 0, fixed seed).** Generation is reproducible, which is what makes benchmarking meaningful — you're measuring the system, not sampling noise.
-- **Two specialized models over one general one.** Planning and code generation are different tasks; specializing improves quality, at the cost of a real **VRAM-contention** problem (two models on one GPU) that the system manages with keep-alive and timeout tuning.
-- **An objective quality metric.** Because the bar is "does it compile and pass tests," quality regressions are visible and gateable — a meaningful advantage over perplexity-style proxies. This is rare and worth highlighting.
+**Verification layer.** Generated projects have to build and pass their tests. Then the analysis
+half rereads the generated code and reports what it finds, which catches problems a compiler
+cannot see.
 
-## Results & optimization
+**Benchmark harness.** Frozen baselines and regression gates. A parser change that lowers
+resolution recall on the committed COBOL baseline fails the gate instead of being found later.
 
-The inference-tuning work — GPU-layer offload, output streaming, **quantization treated as a measured variable** (not a fixed choice), and resolving two-model VRAM contention — is written up with the **tokens/sec vs VRAM vs compile-pass-rate** trade-offs:
+**Orchestration.** Retries, structured output constraints, and model keep alive so a model reload
+does not land in the middle of a run.
 
-→ [`../../writeups/02-gen-system-inference-optimization.md`](../../writeups/02-gen-system-inference-optimization.md)
+## Decisions worth defending
 
-The benchmarking methodology (frozen baselines, regression gates, deterministic runs) is its own writeup:
+**Local first.** Privacy and repeatability instead of the convenience of a hosted API. The whole
+pipeline runs on your hardware.
 
-→ [`../../writeups/03-reproducible-benchmarking.md`](../../writeups/03-reproducible-benchmarking.md)
+**Determinism.** Temperature 0 and a fixed seed. This is what makes benchmarking mean anything. You
+want to measure the system, not sample noise.
+
+**Two specialised models instead of one general one.** Planning and writing code are different
+jobs, and specialising improves both. The cost is a real problem: two models competing for 16 GB.
+The system handles it with keep alive and timeout tuning, and the writeup measures what that costs.
+
+**An objective quality metric, and a correction to it.** The bar is whether the code builds and
+passes tests, which beats a perplexity proxy. But the first version of that metric was useless.
+When a model written operation fails the compile gate, it is replaced with an explicit
+`not implemented` stub, and stubs compile. So the pass rate was 100 percent by construction.
+
+What gets measured now is how much real logic survived the gate rather than falling back to a stub,
+plus the repair counts. Finding that out and writing it down is the more useful half of this.
+
+## Results
+
+The inference tuning work covers GPU layer offload, output streaming, quantization treated as a
+measured variable, and the two model VRAM problem:
+
+→ [Tuning local LLM inference for a code engine](../../writeups/02-gen-system-inference-optimization.md)
+
+The benchmarking method behind it, with frozen baselines and gates, is its own writeup:
+
+→ [Reproducible benchmarking and regression gates](../../writeups/03-reproducible-benchmarking.md)
 
 ## Stack
 
-Go · local LLMs via Ollama (planner + coder models) · compiler-accurate analysis (symbol resolution, call/control-flow graphs) · deterministic generation (temp 0, fixed seed) · benchmark harness with regression gating.
+Go. Local LLMs through Ollama, with a planner model and a coder model. Compiler accurate analysis
+covering symbol resolution, call graphs, and control flow graphs. Deterministic generation. A
+benchmark harness with regression gating.
 
-## What's not here (and why)
+## What is not here, and why
 
-The implementation, prompts, templates, and configuration are **excluded by design**. The architecture above and the linked writeups are enough to evaluate the engineering and discuss it in depth; more is available on request.
+The implementation, the prompts, the templates, and the configuration are left out on purpose.
+
+The architecture above and the linked writeups are enough to judge the engineering and to talk
+about it in depth. More is available on request.

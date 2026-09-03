@@ -1,24 +1,25 @@
-# Snippets — runnable, non-proprietary illustrations
+# Snippets: small runnable examples
 
-These are small, **self-contained** Python files that demonstrate *techniques* used in the
-projects, written to run on their own with toy data. They deliberately contain **none** of the
-production code, prompts, data, or configuration from HieuLuat or gen-system — they exist so the
-*ideas* in the writeups are legible and verifiable without exposing anything proprietary.
+These are small Python files that run on their own with toy data. They show techniques used in the
+projects. They contain none of the production code, prompts, data, or configuration from HieuLuat
+or gen-system.
 
-Each file runs with a standard Python 3 install (only the standard library + NumPy where noted);
-no GPU, database, or network required.
+They exist so the ideas in the writeups are easy to check without exposing anything private.
 
-| File | Illustrates | From writeup |
+Each file runs with a standard Python 3 install. Only the standard library is needed, plus NumPy
+where noted. No GPU, database, or network required.
+
+| File | What it shows | From |
 |---|---|---|
-| `toy_retrieval.py` | Two-stage retrieve-then-rerank over fake vectors, and why an ANN index's recall must be checked | [retrieval optimization](../writeups/01-hieuluat-retrieval-optimization.md) |
-| `roofline_demo.py` | Naive vs blocked matrix-multiply timing and the memory-vs-compute (roofline) intuition | [inference optimization](../writeups/02-gen-system-inference-optimization.md) |
+| `toy_retrieval.py` | Retrieve then rerank over fake vectors, and why you must check an index's recall | [retrieval optimization](../writeups/01-hieuluat-retrieval-optimization.md) |
+| `roofline_demo.py` | Naive against blocked matrix multiply, and the memory versus compute intuition | [inference optimization](../writeups/02-gen-system-inference-optimization.md) |
 
-Run any of them directly:
+Run either one directly:
 
 ```bash
 python3 toy_retrieval.py
 python3 roofline_demo.py
 ```
 
-> These are teaching toys, not the systems. The real implementations are proprietary and not in
-> this repo. The point is to make the writeups' claims concrete and checkable.
+> These are teaching examples, not the systems. The real implementations are proprietary. The point
+> is to make the claims in the writeups concrete enough to check.

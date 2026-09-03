@@ -1,169 +1,44 @@
 {
   "_readme": "Fill any value you have real measurements for; leave others null or empty. Run tools/fill_portfolio.py afterwards — it renders ONLY non-empty values into the writeups, so a partially filled file is fine. Never invent numbers: every value here should come from your benchmark harness or a real run.",
+
   "hieuluat": {
+    "corpus_documents": null,
+    "corpus_chunks": null,
+
     "index_comparison": {
-      "_columns": [
-        "index",
-        "recall_at_10",
-        "p50_latency_ms",
-        "p95_latency_ms"
-      ],
-      "rows": [
-        [
-          "sequential scan",
-          0.75,
-          6.4,
-          6.9
-        ],
-        [
-          "sequential scan — FP32 embeddings",
-          0.75,
-          6.4,
-          7.6
-        ],
-        [
-          "IVFFlat (lists=100)",
-          0.7,
-          0.8,
-          0.9
-        ],
-        [
-          "IVFFlat (lists=100, probes=10)",
-          0.75,
-          1.0,
-          1.3
-        ],
-        [
-          "HNSW (m=16)",
-          0.75,
-          0.9,
-          1.3
-        ]
-      ]
+      "_columns": ["index", "recall_at_10", "p50_latency_ms", "p95_latency_ms"],
+      "rows": []
     },
+    "_index_example": [["sequential scan", 1.00, 240, 410], ["IVFFlat (lists=100)", 0.97, 12, 28], ["HNSW (m=16)", 0.99, 8, 19]],
+
     "rerank_effect": {
-      "_columns": [
-        "config",
-        "answer_quality_pct",
-        "added_latency_ms"
-      ],
-      "rows": [
-        [
-          "retrieve only (k=10)",
-          75.0,
-          0
-        ],
-        [
-          "retrieve k=50 + cross-encoder rerank",
-          75.0,
-          383.6
-        ]
-      ]
+      "_columns": ["config", "answer_quality_pct", "added_latency_ms"],
+      "rows": []
     },
+    "_rerank_example": [["retrieve only (k=10)", 78, 0], ["retrieve k=50 + cross-encoder rerank", 91, 85]],
+
     "embedding_throughput": {
-      "_columns": [
-        "precision",
-        "docs_per_sec_bulk",
-        "vram_gb"
-      ],
-      "rows": [
-        [
-          "FP16",
-          1414.5,
-          null
-        ],
-        [
-          "FP32",
-          490.5,
-          null
-        ]
-      ]
+      "_columns": ["precision", "docs_per_sec_bulk", "vram_gb"],
+      "rows": []
     }
   },
+
   "gen_system": {
     "offload_curve": {
-      "_columns": [
-        "gpu_layers",
-        "tokens_per_sec",
-        "vram_gb"
-      ],
+      "_columns": ["gpu_layers", "tokens_per_sec", "vram_gb"],
       "rows": []
     },
     "streaming": {
-      "_columns": [
-        "config",
-        "ttft_ms",
-        "total_latency_s"
-      ],
+      "_columns": ["config", "ttft_ms", "total_latency_s"],
       "rows": []
     },
     "quantization_sweep": {
-      "_columns": [
-        "quant",
-        "tokens_per_sec",
-        "vram_gb",
-        "compile_pass_rate_pct"
-      ],
-      "rows": [
-        [
-          "Q5_K_M",
-          110.4,
-          12.8,
-          100.0
-        ],
-        [
-          "Q8_0",
-          40.2,
-          15.3,
-          100.0
-        ],
-        [
-          "Q4_K_M",
-          125.7,
-          11.4,
-          100.0
-        ],
-        [
-          "qwen2.5-coder:14b (production coder)",
-          30.8,
-          null,
-          100.0
-        ],
-        [
-          "qwen3:14b (production planner)",
-          29.1,
-          null,
-          100.0
-        ]
-      ]
+      "_columns": ["quant", "tokens_per_sec", "vram_gb", "compile_pass_rate_pct"],
+      "rows": []
     },
     "two_model_strategies": {
-      "_columns": [
-        "strategy",
-        "reload_cost_s",
-        "tokens_per_sec",
-        "compile_pass_rate_pct"
-      ],
-      "rows": [
-        [
-          "sequential + keep-alive (Q5_K_M)",
-          7.46,
-          110.4,
-          100.0
-        ],
-        [
-          "sequential + keep-alive (Q8_0)",
-          9.97,
-          40.2,
-          100.0
-        ],
-        [
-          "sequential + keep-alive (Q4_K_M)",
-          7.03,
-          125.7,
-          100.0
-        ]
-      ]
+      "_columns": ["strategy", "reload_cost_s", "tokens_per_sec", "compile_pass_rate_pct"],
+      "rows": []
     }
   }
 }

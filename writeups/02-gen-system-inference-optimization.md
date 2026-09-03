@@ -1,113 +1,200 @@
-# Optimizing Local-LLM Inference for a Code Engine
+# Tuning Local LLM Inference for a Code Engine
 
-### GPU offload, streaming, quantization-as-a-variable, and two-model VRAM contention — with an objective quality metric
+### GPU offload, streaming, quantization, and two models sharing one consumer card
 
-> **Context:** gen-system is a local-first code-intelligence and generation engine (see
+> **Context:** gen-system is a local code understanding and generation engine (see
 > [project README](../projects/gen-system/)). This writeup covers tuning its inference layer.
-> What makes it a stronger applied-inference story than most: the quality axis is **objective** —
-> generated code either compiles and passes tests or it doesn't — so quantization and tuning
-> regressions are *visible*, not hidden behind perplexity. Source is proprietary.
+> The quality test is objective: the generated code either builds and passes its tests, or it does
+> not. Section 4 explains why the obvious version of that test is useless, and what replaced it.
+> The code is proprietary.
 
 ---
 
-## 0 · Measured environment
+## 0. The machine
 
-All measurements in this writeup come from the production setup, not a lab machine:
-**NVIDIA RTX 4060 Ti 16 GB** · Ollama with keep-alive · a **role-split two-model design**
-sharing one GPU — **qwen3:14b** as planner (reasoning/architecture, ≈9.3 GB) and
-**qwen2.5-coder:14b** as coder (≈9.0 GB) — a pairing that cannot be co-resident in 16 GB,
-which is exactly why the keep-alive, timeout, and sequencing engineering below exists ·
-fully offline, deterministic decode (temp 0, fixed seed).
+One consumer GPU, not a lab machine. An NVIDIA RTX 4060 Ti with 16 GB, running Ollama, with a
+planner model and a coder model sharing the card.
 
-*Model lineage: production originally ran DeepSeek-Coder-V2 16B @ Q5_K_M as a single
-model for all roles. Benchmark data and observed entity over-generation drove the split
-to a reasoning planner + a coder model (v23.35). DeepSeek-Coder-V2 16B remains the
-subject of the quantization study below. Production throughput for the current pair is
-reported in the measured tables (~30 tok/s short-form per model, dense 14B); the
-migration deliberately traded the MoE model's ~110 tok/s for planning quality.*
+The production roles are `qwen3:14b` for planning and `qwen2.5-coder:14b` for code. The
+quantization study uses `deepseek-coder-v2:16b-lite-instruct` at Q4_K_M, Q5_K_M, and Q8_0.
 
-## 1 · The starting point
+Decoding is deterministic: temperature 0, seed 42, top_p 1. That is verified, not assumed.
 
-All inference flowed through a single client to a local Ollama runtime, and the picture was consistent: **correct, deterministic, and completely un-tuned at the runtime level.** Specifically:
+The exact GPU, driver, and model list are captured by the harness into
+[ENVIRONMENT.md](../benchmarks/ENVIRONMENT.md). Every table below carries the commit and date it
+was measured at. No speed number appears in the text of this writeup. The numbers live in the
+generated tables in section 6, so the words and the data cannot drift apart.
 
-- **One-shot, non-streamed calls.** The client blocked until the entire completion was done — so for a long code generation, you paid full latency before the first token and couldn't overlap downstream parsing.
-- **No GPU/runtime tuning surface.** The request options exposed sampling controls (temperature, seed, top-p) but **nothing about how the GPU runs the model** — no layer-offload, context-length, or batch controls. The runtime ran at defaults.
-- **A fixed quantization.** The model string carried one quant; it was a fixed choice, never measured against alternatives.
-- **Two models contending for VRAM.** Separate planner and coder models share one GPU — which is *why* the system needed model keep-alive and a long timeout (a cold reload of 30–90s could otherwise land mid-run).
+## 1. Where it started
 
-The correctness/orchestration layer was excellent (deterministic seeds, retries, structured-output constraints, keep-alive). The **inference-performance** layer was untouched — and that layer is the actual applied-inference job.
+All inference went through one client to a local Ollama runtime. The picture was consistent. It was
+correct, it was deterministic, and it was completely untuned.
 
-## 2 · Move 1 — Expose and tune the GPU knobs (highest payoff)
+- **Every call waited for the whole answer.** The client blocked until generation finished. A long
+  code generation paid the full wait before the first token appeared, and nothing downstream could
+  start early.
+- **There were no GPU controls.** The request options set temperature, seed, and top_p. Nothing set
+  how the GPU ran the model. No layer offload, no context size, no batch size. The runtime ran at
+  its defaults.
+- **The quantization was fixed.** The model tag carried one quant. That was a choice, never a
+  measurement.
+- **Two models shared 16 GB.** This is why the system needs keep alive and a long timeout. A cold
+  model load takes 30 to 90 seconds and could land in the middle of a run.
 
-The first win was making the runtime's performance surface tunable and **measuring each knob** against the existing benchmark harness:
+The correctness layer was already strong. The performance layer was untouched, and that layer is
+the actual job.
 
-- **GPU-layer offload** — the dominant lever. With two ~14B models, whether layers fit in VRAM or spill to CPU is the difference between fast and unusable. I measured tokens/sec as a function of offloaded layers.
-- **Context length** — the KV-cache scales with it. The prompts here are large (plans, schemas, legacy code), so right-sizing context trades VRAM for capability; too large wastes cache memory that could fund a larger batch.
-- **Prompt-processing batch size** — affects prefill throughput.
+## 2. Move 1: expose the GPU controls
 
-**Deliverable:** a tokens/sec-vs-offload curve and a VRAM-vs-context table for both models, run through the harness. This is "I tuned a real local-inference deployment with measured results" — and it rode on benchmarking infrastructure the project already had.
+All model traffic passes through one function. Three settings are now read from the environment and
+sent with every request:
 
-## 3 · Move 2 — Stream the output
+| Variable | What it controls |
+|---|---|
+| `OLLAMA_NUM_GPU` | How many layers run on the GPU. This is the biggest lever. With two 14B models on 16 GB, whether the layers fit or spill to the CPU is the difference between fast and unusable. |
+| `OLLAMA_NUM_CTX` | Context window size. The KV cache grows with it. Prompts here are large, so this trades VRAM for capability. |
+| `OLLAMA_NUM_BATCH` | Prompt processing batch size, which sets prefill speed. |
 
-Switching to streaming output produced two wins: **time-to-first-token dropped sharply** (you stop waiting for the whole completion), and you can **overlap** — begin parsing and validating the generated code while later tokens still arrive. The determinism and retry logic are unchanged; only *how the response is consumed* changed. Measured before/after: time-to-first-token and total latency on the same benchmark suites.
+Each setting is left out of the request when its variable is unset. A machine that sets none of
+them sends exactly the same request as the old client did. That property is what keeps the
+measurement honest. The tuned and untuned runs differ only by the setting being tested.
 
-## 4 · Move 3 — Quantization as a measured variable (the textbook idea, applied)
+The bench driver sweeps `OLLAMA_NUM_GPU` and samples peak VRAM at each step.
 
-Instead of running one fixed quant, I turned quantization into an experiment: benchmark the **same model at multiple quantization levels** (e.g. 4-bit / 5-bit / 8-bit / FP16) for both the planner and coder roles, and measure the **three-way trade-off**: tokens/sec, VRAM, and **output quality**.
+## 3. Move 2: stream the output
 
-The decisive advantage here is the quality axis. gen-system's whole premise is that generated code **builds and passes tests** — so the quality metric is the **compile-and-test pass rate**, not perplexity. A quantization that speeds inference but tanks the pass rate is *visibly* worse. Most candidates can only show a perplexity curve; this shows "quantization vs tokens/sec vs VRAM vs **compile-pass-rate**" — an objective, domain-meaningful result.
+Streaming sits behind `OLLAMA_STREAM`. The reader consumes the stream and joins the fragments back
+into one string. That string is identical to what the old buffered path returned.
 
-## 5 · Move 4 — Two-model VRAM contention (a real systems-of-inference problem)
+That matters more than it sounds. Everything downstream sees the same input either way: the JSON
+extraction, the rule that generated function bodies must come back alone, and the determinism
+check. Transport is not allowed to change meaning. A test asserts one unique output across five
+identical streamed responses.
 
-The planner/coder models competing for GPU memory is a legitimate architecture problem with several solutions worth evaluating rather than assuming:
+Buffered stays the default. Streaming is opt in until the measurement says otherwise.
 
-- **Sequential with smart keep-alive** (the original approach) — measure the reload cost actually being paid.
-- **More aggressive quantization to keep both resident** — can both stay warm at 4-bit?
-- **One shared higher-quant model vs two specialized lower-quant models** — a quality-vs-memory experiment the compile-pass-rate metric can adjudicate.
-- **KV-cache management** — how context length and batch interact with cache residency.
+What gets measured is time to first token and total time, with streaming on and off, on the same
+prompt, three runs each.
 
-**Deliverable:** "two-model serving on one GPU — three strategies, measured on reload cost, throughput, and compile-pass-rate." This is a senior-level story: not one knob, but an architecture decision under a hardware constraint, settled with numbers.
+## 4. Move 3: quantization, and the broken metric underneath it
 
-## 6 · Results summary
+Quantization is an experiment here, not a fixed choice. The same model runs at Q4_K_M, Q5_K_M, and
+Q8_0 on the coder role, with the planner held fixed. Each run measures speed, VRAM, and quality.
+
+The quality axis is where this got interesting, and where the first version of this writeup was
+wrong.
+
+**The obvious metric does not work.** The plan was to report compile pass rate. Generated code
+either builds or it does not. Every run came back at 100 percent.
+
+That is not because the model is perfect. It is **by construction**. When a model written operation
+fails to compile, the engine sends it back to the model with the build error. If it still fails,
+the engine replaces the body with an explicit `not implemented` stub. The stub compiles. The
+service always builds.
+
+A metric that cannot go down measures nothing. A quantization that badly damaged the output would
+still score 100 percent.
+
+**What replaced it.** The instrumentation now counts what actually changes. All of it comes from
+the same code path production uses:
+
+| Metric | What it catches |
+|---|---|
+| `ops_stubbed` and `stub_rate_pct` | How much model written logic failed the compile gate and fell back to a stub. This is the real quality signal. |
+| `op_repair_attempts` and `op_repair_successes` | Repair rounds at the operation level, capped at 2 before the stub. A weaker quant should need more. |
+| `heal_attempts_total` and `heal_success` | Repair rounds at the task level, capped at 3. |
+| `go_test_pass` | Whether the generated backend passes its own tests, including one that fails if an operation panics at runtime. |
+| `verify_findings` | What the project's own code understanding engine finds when it rereads the generated backend: unresolved calls, orphan operations, read operations that write. |
+| `prompt_tokens` and `wall_s` | Cost per run. |
+
+Compile pass rate is still reported. It is no longer the headline, and the reason it is useless is
+now written down instead of hidden.
+
+The task set is five fixed application ideas. They were frozen and committed before the first run,
+so they cannot be tuned to fit the results.
+
+## 5. Move 4: two models, one card
+
+Two models competing for 16 GB is a real design problem with more than one good answer. Three
+strategies run against the same frozen task set:
+
+| Strategy | What it is | What it costs |
+|---|---|---|
+| A. Sequential with keep alive | The production default. One model resident at a time. | A model reload when the roles swap. Measured as the load time difference. |
+| B. Both resident | Keep alive never expires. Both models stay warm. | VRAM headroom, and speed under contention. Whether both even fit is itself a result. |
+| C. One shared model | The coder model plans as well, so nothing ever swaps. | Planning quality, visible as stub rate, repair counts, and extra entities. |
+
+One clarification belongs everywhere this is described. **There is no scheduler.** "Sequential
+scheduling with keep alive" means Ollama's own keep alive, two model roles, and measurement of what
+that costs. No scheduling code was written. Claiming otherwise would not survive a reading of the
+source.
+
+## 6. Results
 
 <!--measured:gen-->
-### Measured results
-
-*Auto-rendered from `benchmarks/results/measured.json` — every number below comes from the project's own harness on the hardware described above.*
-
-**Quantization sweep: speed vs VRAM vs compile-pass-rate**
-
-| quant | tokens per sec | vram gb | compile pass rate pct |
-|---|---|---|---|
-| Q5_K_M | 110.4 | 12.8 | 100.0 |
-| Q8_0 | 40.2 | 15.3 | 100.0 |
-| Q4_K_M | 125.7 | 11.4 | 100.0 |
-| qwen2.5-coder:14b (production coder) | 30.8 | — | 100.0 |
-| qwen3:14b (production planner) | 29.1 | — | 100.0 |
-
-**Two-model serving strategies**
-
-| strategy | reload cost s | tokens per sec | compile pass rate pct |
-|---|---|---|---|
-| sequential + keep-alive (Q5_K_M) | 7.46 | 110.4 | 100.0 |
-| sequential + keep-alive (Q8_0) | 9.97 | 40.2 | 100.0 |
-| sequential + keep-alive (Q4_K_M) | 7.03 | 125.7 | 100.0 |
-
 <!--/measured-->
 
-| Change | Primary effect | What I measured |
+> **Status:** the instrumentation, the GPU controls, the streaming path, and the five drivers are
+> written and committed. The runs are still pending on the benchmark machine. Tables appear above
+> as the runs land. Until a table appears, treat that move as built and not yet measured. Nothing
+> here quotes a number that a run did not produce.
+
+| Change | Effect | What is measured |
 |---|---|---|
-| Expose + tune GPU knobs (offload, context, batch) | Throughput & fit on one GPU | Tokens/sec vs offload; VRAM vs context |
-| Output streaming | Lower time-to-first-token; overlap | TTFT and total latency, before/after |
-| Quantization as a variable | Speed/VRAM vs quality, chosen deliberately | Tokens/sec vs VRAM vs **compile-pass-rate** |
-| Resolve two-model VRAM contention | Stable serving without reloads | Reload cost, throughput, pass-rate across 3 strategies |
+| GPU controls | Speed and fit on one card | Tokens per second and peak VRAM against offloaded layers |
+| Streaming | Lower time to first token | Time to first token and total time, on and off, three runs |
+| Quantization | Speed and VRAM against quality | Speed, VRAM, stub rate, repair counts, test pass |
+| Two model strategies | Serving without reloads | Reload cost, speed, stub rate across three strategies |
 
-## 7 · Future work
+## 7. Future work
 
-The deepest extension is serving the same model through a **production inference engine** (continuous/in-flight batching, paged attention, tensor parallelism) and comparing head-to-head against the Ollama baseline — same model, same harness, measured tokens/sec and throughput-under-concurrency. That comparison is close to the actual day job of an inference engineer, and it makes the batching/KV-cache concepts concrete.
+Two directions, neither of them claimed as done.
 
-## 8 · What I'd want a reader to take from this
+The first is serving the same model through a production inference engine, with continuous batching
+and paged attention. Then compare it against the Ollama baseline on the same harness. That
+comparison is close to the day job, and it makes the batching and KV cache trade offs concrete.
 
-The un-tuned runtime was an opportunity, not a flaw: I **opened the inference black box, made each knob a measured experiment, and — crucially — anchored every quality claim to an objective metric** (does the code compile and pass). That last point is the differentiator: I can show quantization's quality cost in pass-rate, where most can only show perplexity.
+The second is feeding the rendered control flow graphs back to the model as repair context, behind
+a flag, and measuring it properly. I expect no effect on Go repair, because the compiler already
+tells the model what is wrong. I expect a possible effect on COBOL and on belief enrichment, where
+there is no compiler to lean on. The result gets published either way, including if it is null.
 
-*Methodology note: timings are WebAssembly-free, native local-GPU measurements through the project's harness; absolute GFLOP/s and tokens/sec depend on the specific GPU and are illustrative of the trade-off shape, not universal constants. See [`03-reproducible-benchmarking.md`](03-reproducible-benchmarking.md).*
+## 8. What I would want a reader to take from this
+
+Not "I tuned some settings." The untuned runtime was an opportunity. Each control became a measured
+experiment. When the headline quality metric turned out to be 100 percent by construction, the
+response was to say so and build a metric that can move.
+
+The broken metric was not the only thing this pass turned up. The rest is the part I would actually
+want read.
+
+**Two determinism bugs, found by reading my own code.** Neither came from a bug report. Determinism
+is the load bearing claim of this system: temperature 0, fixed seed, identical output. Symbol
+resolution broke it. It took the first match while walking a Go map, and Go randomizes that order.
+Two exported symbols sharing a short name could resolve differently between runs, and the call
+graph quietly changed shape.
+
+I fixed it, wrote tests, and moved on. Then it turned out there was a second resolver on a
+different code path with the same flaw, plus a worse one. It had no tier preference at all, so a
+standard library symbol could capture a project call. My tests had gone through the fixed path and
+passed while the bug sat next door. The second fix deletes the duplicate rather than repairing it.
+Two functions answering the same question differently is how the split happened.
+
+**Six tests that passed for the wrong reason.** A group of frontend tests had been failing. My first
+read was that they looked environmental. They were not. Three failed because a test helper matched
+nodes by name, while call nodes carry their identifier in a different field. Every lookup silently
+found nothing, and a correct frontend took the blame. Two were a formatting artifact that rendered
+a flowchart label as broken text. One asserted a rule that a later version had deliberately
+replaced. Only one was genuinely platform specific.
+
+Both stories have the same shape, and that shape is the point. **The failure was not a wrong
+answer. It was a confident one.** A metric stuck at 100 percent. A test suite that was green on the
+path I happened to test. Six red tests I was ready to explain away as someone else's problem.
+
+None of that is caught by running the thing and watching it work. It is caught by going back and
+asking what each number would look like if it were lying to you. The benchmark figures below are
+only worth what that habit is worth.
+
+*All timings are native local GPU measurements taken through the project's own harness, on the
+machine described in section 0. Absolute speed depends on the GPU. The shape of each trade off is
+the part that transfers. See [reproducible benchmarking](03-reproducible-benchmarking.md).*
