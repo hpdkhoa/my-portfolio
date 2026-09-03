@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Reproducible Benchmarking &amp; Regression Gating</title>
+<title>Reproducible Benchmarking and Regression Gates</title>
 <script>
 window.MathJax={tex:{inlineMath:[['\\\\(','\\\\)']],displayMath:[['$$','$$'],['\\\\[','\\\\]']],processEscapes:true,tags:'none'},
 options:{skipHtmlTags:['script','noscript','style','textarea','pre','code']}};
@@ -225,7 +225,7 @@ html[data-theme="dark"] .ra-sent.speaking{background:#1d3a36;box-shadow:0 0 0 3p
     </div>
     <div class="kicker">Writeup · 3 of 3</div>
     <h1 class="title">Reproducible Benchmarking &amp; Regression Gating</h1>
-    <p class="subtitle">Architecture and measured results — the polished web version of the portfolio writeups.</p>
+    <p class="subtitle">Architecture and measured results: the web version of the portfolio writeups.</p>
 
     <div class="progress-card">
       <div class="progress-top"><span class="progress-label">Reading progress</span><span class="progress-pct" id="progPct">0%</span></div>
@@ -273,46 +273,36 @@ html[data-theme="dark"] .ra-sent.speaking{background:#1d3a36;box-shadow:0 0 0 3p
 
   <main class="main">
     <article class="doc" id="doc">
-<h1 id="reproducible-benchmarking-regression-gating">Reproducible Benchmarking &amp; Regression Gating</h1>
-<h3 id="the-methodology-that-makes-every-other-result-in-this-repo-trustworthy">The methodology that makes every other result in this repo trustworthy</h3>
-<blockquote>
-<p><strong>Why this matters:</strong> an optimization without a before-number is a guess, and a benchmark you
-can't reproduce is an anecdote. Both HieuLuat and gen-system are tuned against fixed,
-repeatable measurements rather than impressions. This writeup is the methodology those
-results rest on — and, honestly, it's the habit that separates engineers who <em>claim</em> speedups
-from engineers who <em>prove</em> them.</p>
-</blockquote>
+<h1 id="reproducible-benchmarking-and-regression-gates">Reproducible Benchmarking and Regression Gates</h1>
+<h3 id="the-method-that-makes-every-other-number-in-this-repo-worth-reading">The method that makes every other number in this repo worth reading</h3>
+<blockquote><p><strong>Why this matters:</strong> an optimization without a before number is a guess. A benchmark you cannot reproduce is a story. Both HieuLuat and gen-system are tuned against fixed, repeatable measurements. This writeup describes the method those results rest on.</p></blockquote>
 <hr>
-<h2 id="1-the-principle"><span class="secnum">1</span>The principle</h2>
-<p>Performance work is only as credible as its measurement. Three rules govern all the optimization in this repo:</p>
-<ol>
-<li><strong>Measure before <em>and</em> after, always.</strong> Every change is reported as a delta against a recorded baseline. No baseline, no claim.</li>
-<li><strong>Make runs deterministic where possible.</strong> Reproducibility is what turns a measurement into evidence — you're measuring the system, not sampling noise.</li>
-<li><strong>Anchor quality to an objective metric.</strong> Speed at the cost of silent quality loss is a regression, so quality must be measured alongside performance, not assumed constant.</li>
-</ol>
-<h2 id="2-frozen-baselines"><span class="secnum">2</span>Frozen baselines</h2>
-<p>A baseline is a <strong>recorded, version-tagged measurement</strong> of the system before a change — captured under fixed conditions and stored, not re-derived from memory. Every optimization in the two projects is reported against one. This is what lets a statement like "this change improved throughput" be checked rather than trusted.</p>
-<h2 id="3-regression-gates"><span class="secnum">3</span>Regression gates</h2>
-<p>The stronger version of "measure after" is to make regressions <strong>fail automatically</strong>. In gen-system, a change that lowers the <strong>compile-and-test pass rate</strong> is caught by a gate, not discovered weeks later in production. The gate treats a quality drop as a build failure. This is unusual and valuable: it means performance work can proceed aggressively <em>because</em> a quality regression can't slip through silently.</p>
-<p>The same discipline applies to HieuLuat's <strong>labeled eval suites</strong> (citation-QA, definition-lookup, and others): an optimization to the retrieval path is accepted only if it holds or improves the measured quality on those fixed cases. A faster index that quietly drops recall on the eval set is rejected, not shipped.</p>
-<h2 id="4-determinism"><span class="secnum">4</span>Determinism</h2>
-<p>Where the workload allows it, runs are made deterministic — for example, gen-system generates at temperature 0 with a fixed seed. The payoff is that benchmark numbers are stable across runs, so a delta reflects the change you made, not stochastic variation. (For genuinely stochastic components, the answer is repeated runs and reporting the distribution, not a single number.)</p>
-<h2 id="5-the-objective-quality-advantage"><span class="secnum">5</span>The objective-quality advantage</h2>
-<p>The most useful thing about both projects' metrics is that quality is <strong>objective</strong>, not proxied:</p>
-<ul>
-<li><strong>gen-system:</strong> does the generated code <em>compile and pass tests</em>? A binary, domain-meaningful signal.</li>
-<li><strong>HieuLuat:</strong> does the answer stay grounded and cite correctly on labeled legal QA cases?</li>
-</ul>
-<p>This matters most for <strong>quantization and approximation</strong> work, where the whole risk is silent quality loss. Most inference write-ups can only show a perplexity curve and hope it correlates with usefulness. Here, the quality cost of a 4-bit quant shows up directly as a drop in pass rate — so the trade-off is <em>visible</em> and the decision is <em>defensible</em>.</p>
-<h2 id="6-how-this-shows-up-in-the-other-writeups"><span class="secnum">6</span>How this shows up in the other writeups</h2>
-<ul>
-<li>The <a href="01-hieuluat-retrieval-optimization.md">retrieval optimization</a> recall-vs-latency curves and reranker quality lifts are all measured against the eval suites under this methodology.</li>
-<li>The <a href="02-gen-system-inference-optimization.md">inference optimization</a> tokens/sec, VRAM, and compile-pass-rate numbers all run through the benchmark harness with frozen baselines and gates.</li>
-</ul>
-<h2 id="7-what-id-want-a-reader-to-take-from-this"><span class="secnum">7</span>What I'd want a reader to take from this</h2>
-<p>Reproducible measurement isn't bureaucracy — it's what makes everything else in this repo <em>evidence</em> instead of <em>assertion</em>. I build the baseline first, gate on an objective quality metric, and keep runs deterministic, so that when I say "N× faster with quality held," there's a number behind every word of it.</p>
-<p><em>Note: this writeup describes methodology; specific figures live in the project-specific writeups and depend on hardware. The methodology is the transferable part.</em></p>
-    </article>
+<h2 id="1-the-three-rules">1. The three rules</h2>
+<p>Performance work is only as good as its measurement. Three rules cover all of it.</p>
+<ol><li><strong>Measure before and after, every time.</strong> Every change is reported against a recorded baseline. No baseline, no claim.</li><li><strong>Make runs repeatable where the work allows it.</strong> That is what turns a measurement into evidence. You want to measure the system, not sample noise.</li><li><strong>Tie quality to something objective.</strong> Speed bought with silent quality loss is not a win. So quality gets measured next to performance, never assumed to hold.</li></ol>
+<h2 id="2-frozen-baselines">2. Frozen baselines</h2>
+<p>A baseline is a recorded measurement of the system before a change, tagged with a version and taken under fixed conditions. It is stored, not remembered.</p>
+<p>Every optimization in both projects is reported against one. That is what makes a sentence like "this change improved throughput" checkable instead of something you have to take on trust.</p>
+<h2 id="3-regression-gates">3. Regression gates</h2>
+<p>The stronger version of "measure after" is to make a regression fail the build automatically.</p>
+<p>In gen-system, a benchmark run can be diffed against a committed baseline, and a drift beyond a tolerance exits non zero. The frozen COBOL baseline works this way. A parser change that lowers resolution recall on 30,000 lines of third party COBOL is caught by the gate, not found weeks later.</p>
+<p>The same idea applies to HieuLuat's labeled evaluation sets. A change to the retrieval path is accepted only if measured quality holds or improves on those fixed cases. A faster index that quietly drops recall is rejected rather than shipped.</p>
+<h2 id="4-repeatability">4. Repeatability</h2>
+<p>Where the work allows it, runs are made deterministic. gen-system generates at temperature 0 with a fixed seed, and a suite checks that the same prompt gives one unique output across repeated runs.</p>
+<p>The payoff is that a difference between two runs reflects the change you made, not random variation. Where a component is genuinely random, the honest answer is repeated runs and a reported range, not a single number.</p>
+<h2 id="5-choosing-a-quality-metric-that-can-actually-move">5. Choosing a quality metric that can actually move</h2>
+<p>Both projects measure quality directly rather than through a proxy. That is the useful part. But choosing the metric is harder than it looks, and gen-system got it wrong the first time.</p>
+<p>The plan was to report compile pass rate. Does the generated code build? It came back at 100 percent on every run. Not because the model was perfect, but because the engine replaces a failing operation with a stub that compiles. The metric could not go down, so it measured nothing.</p>
+<p>The replacement counts what actually varies: how much generated logic survived the compile gate rather than falling back to a stub, and how many repair rounds that took. Details are in <a href="02-gen-system-inference-optimization.md">section 4 of the inference writeup</a>.</p>
+<p>This matters most for quantization work, where the whole risk is silent quality loss. Most inference writeups can only show a perplexity curve and hope it tracks usefulness. A metric that is objective but stuck is worse than a proxy, because it looks like evidence. So the lesson is not simply to pick an objective metric. It is to check that the metric can actually move.</p>
+<h2 id="6-where-this-shows-up">6. Where this shows up</h2>
+<ul><li>The <a href="01-hieuluat-retrieval-optimization.md">retrieval optimization</a> recall and latency curves are measured against the evaluation sets under this method. Section 6 there is a worked example of reading a flat number correctly.</li><li>The <a href="02-gen-system-inference-optimization.md">inference optimization</a> speed, VRAM, stub rate, and repair counts all run through the benchmark harness against frozen baselines.</li></ul>
+<h2 id="7-what-i-would-want-a-reader-to-take-from-this">7. What I would want a reader to take from this</h2>
+<p>Reproducible measurement is not paperwork. It is what makes the rest of this repo evidence instead of assertion.</p>
+<p>I build the baseline first. I commit the task set before the first run, so it cannot be tuned to fit the results. I gate on a quality metric and keep runs repeatable. Then when I say a change made something faster while quality held, there is a number behind every word.</p>
+<p>The part that took longest to learn is in section 5. Having a metric is not the same as having a metric that works.</p>
+<p><em>This writeup describes method. The figures live in the project writeups and depend on hardware. The method is the part that transfers.</em></p>
+</article>
   </main>
 </div>
 
@@ -426,7 +416,7 @@ document.addEventListener('DOMContentLoaded',function(){
     var raw=bl.textContent.replace(/\s+/g,' ').trim();
     if(!raw) return;
     // If the block contains inline markup (bold/italic/code/links), DON'T
-    // flatten it — that would strip the formatting. Instead treat the whole
+    // flatten it, since that would strip the formatting. Instead treat the whole
     // block as a single read-aloud unit, preserving its HTML. We add a
     // transparent wrapper span only for highlight bookkeeping.
     var hasMarkup = bl.querySelector('strong,em,code,a,b,i') !== null;

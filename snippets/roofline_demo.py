@@ -1,9 +1,9 @@
 """
-roofline_demo.py — a teaching toy for the memory-vs-compute (roofline) intuition behind
+roofline_demo.py: a teaching toy for the memory versus compute (roofline) intuition behind
 GPU/inference optimization: naive vs blocked matrix multiply, and the O(n^3) growth pattern.
 
 This is pure-Python (no NumPy, no GPU) so it RUNS anywhere and the *shape* of the result is
-visible. Absolute speeds are irrelevant here — what matters is (a) work grows ~n^3, and
+visible. Absolute speeds are irrelevant here. What matters is (a) work grows ~n^3, and
 (b) improving data locality (blocking) helps, which is the same idea that makes tiled GPU
 matmul and good cache behavior matter.
 
@@ -27,13 +27,13 @@ def matmul_naive(A, B, n):
         for j in range(n):
             s = 0.0
             for k in range(n):
-                s += A[i][k] * B[k][j]   # B[k][j] strides down a column — poor locality
+                s += A[i][k] * B[k][j]   # B[k][j] strides down a column, so poor locality
             C[i][j] = s
     return C
 
 
 def matmul_blocked(A, B, n, block=16):
-    # Transpose B so the inner loop walks contiguous memory in both operands —
+    # Transpose B so the inner loop walks contiguous memory in both operands,
     # the pure-Python analogue of improving data locality / tiling.
     Bt = [[B[k][j] for k in range(n)] for j in range(n)]
     C = [[0.0] * n for _ in range(n)]
@@ -68,7 +68,7 @@ for n in (32, 48, 64, 96, 128):
     print(f"{n:>5} | {dt:>12.4f} | {flops(n):>14,} | {ratio:>12.2f}x")
     prev = dt
 
-print("\nTakeaway: the time ratio tracks the (n_new/n_old)^3 work ratio — the cubic")
+print("\nTakeaway: the time ratio tracks the (n_new/n_old)^3 work ratio, the cubic")
 print("growth that makes matmul the workload GPUs (and Tensor Cores) exist to accelerate.\n")
 
 print("=== Data locality matters: naive vs locality-improved (blocked/transposed) ===")
@@ -84,4 +84,4 @@ print(f"  locality-improved: {t_block:.4f} s")
 print(f"  speedup          : {t_naive / t_block:.2f}x")
 print("\nTakeaway: same FLOPs, better memory access pattern -> faster. On a GPU this is")
 print("exactly why a TILED matmul (operands staged in fast shared memory) beats the naive")
-print("version — the optimization is about moving less data, not doing less math.")
+print("version. The optimization is about moving less data, not doing less math.")

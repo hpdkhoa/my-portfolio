@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Optimizing a Legal RAG Retrieval Path</title>
+<title>Making a Legal Search Path Fast and Still Correct</title>
 <script>
 window.MathJax={tex:{inlineMath:[['\\\\(','\\\\)']],displayMath:[['$$','$$'],['\\\\[','\\\\]']],processEscapes:true,tags:'none'},
 options:{skipHtmlTags:['script','noscript','style','textarea','pre','code']}};
@@ -225,7 +225,7 @@ html[data-theme="dark"] .ra-sent.speaking{background:#1d3a36;box-shadow:0 0 0 3p
     </div>
     <div class="kicker">Writeup · 1 of 3</div>
     <h1 class="title">Optimizing a Legal RAG Retrieval Path</h1>
-    <p class="subtitle">Architecture and measured results — the polished web version of the portfolio writeups.</p>
+    <p class="subtitle">Architecture and measured results: the web version of the portfolio writeups.</p>
 
     <div class="progress-card">
       <div class="progress-top"><span class="progress-label">Reading progress</span><span class="progress-pct" id="progPct">0%</span></div>
@@ -273,77 +273,59 @@ html[data-theme="dark"] .ra-sent.speaking{background:#1d3a36;box-shadow:0 0 0 3p
 
   <main class="main">
     <article class="doc" id="doc">
-<h1 id="optimizing-a-legal-rag-retrieval-path">Optimizing a Legal RAG Retrieval Path</h1>
-<h3 id="indexing-two-stage-reranking-and-fp16-embeddings-with-the-recalllatencyquality-trade-offs-measured">Indexing, two-stage reranking, and FP16 embeddings — with the recall/latency/quality trade-offs measured</h3>
-<blockquote>
-<p><strong>Context:</strong> HieuLuat is a Vietnamese-first legal RAG system (see <a href="../projects/hieuluat/">project README</a>).
-This writeup covers how I made its retrieval path fast <em>and</em> kept it trustworthy — the
-constraint that matters most in legal QA, where a fast-but-wrong answer is worse than a slow
-one. The implementation is proprietary; the engineering and the measured trade-offs are below.</p>
-</blockquote>
+<h1 id="making-a-legal-search-path-fast-and-still-correct">Making a Legal Search Path Fast and Still Correct</h1>
+<h3 id="vector-indexing-reranking-and-fp16-embeddings-with-the-trade-offs-measured">Vector indexing, reranking, and FP16 embeddings, with the trade offs measured</h3>
+<blockquote><p><strong>Context:</strong> HieuLuat is a Vietnamese legal question answering system (see <a href="../projects/hieuluat/">project README</a>). This writeup covers how I made its search path fast without making it less trustworthy. In legal work, a fast wrong answer is worse than a slow right one. The code is proprietary. The engineering and the measurements are below.</p></blockquote>
 <hr>
-<h2 id="1-the-starting-point"><span class="secnum">1</span>The starting point</h2>
-<p>The retrieval path had three hot components: a GPU embedder (bge-m3), a pgvector cosine search, and a cross-encoder reranker. Each was architecturally sound but performance-naive in the same way — the GPU and the vector store were treated as conveniences rather than tuned components. Three specific issues drove the optimization, each a measurable win:</p>
-<ol>
-<li><strong>The vector search ran without an index on the embedding column.</strong> Cosine distance was computed against every row and sorted — a sequential scan. Fine at a few thousand chunks; a cliff as the legal corpus grows.</li>
-<li><strong>A cross-encoder reranker existed but was disabled by default.</strong> The highest-quality relevance component wasn't in the hot path.</li>
-<li><strong>The embedder ran in full precision.</strong> No FP16 path, so it used more memory bandwidth and time than necessary on the GPU.</li>
-</ol>
-<h2 id="2-move-1-a-real-vector-index-highest-payoff-lowest-effort"><span class="secnum">2</span>Move 1 — A real vector index (highest payoff, lowest effort)</h2>
-<p>The single biggest win was the cheapest: replacing the sequential scan with an <strong>approximate-nearest-neighbor index</strong>. The choice is between IVFFlat (an inverted-list index with a <code>lists</code>/<code>probes</code> knob) and HNSW (a graph index with <code>m</code>/<code>ef_search</code> knobs). Both turn an O(rows) scan into an approximate lookup that scales far better.</p>
-<p><strong>The legal-domain catch.</strong> ANN indexes are <em>approximate</em> — they can miss the true nearest neighbor. For a general product that's a minor recall hit; for a <strong>legal</strong> product whose <code>NO_INFO</code> guarantee depends on retrieval actually finding what exists, dropping the chunk that held the right answer is a correctness failure, not a latency footnote. So this isn't a free swap — it's a <strong>recall-vs-latency tuning problem</strong>, and the <code>probes</code>/<code>ef_search</code> parameter is the dial.</p>
-<p><strong>What I measured.</strong> Query latency at increasing corpus sizes (sequential scan vs IVFFlat vs HNSW), and <strong>recall@k vs latency</strong> as I swept the index parameter. The deliverable that matters is that recall-vs-latency curve: it shows exactly how much latency buys how much recall, and lets the operating point be chosen against the product's correctness bar rather than guessed.</p>
-<blockquote>
-<p><strong>Engineering judgment, stated:</strong> the right answer here is <em>not</em> "use the fastest index." It's "pick the operating point where recall is high enough that the safety guarantee holds, and latency is as low as that allows." That framing — correctness first, then speed — is the whole point.</p>
-</blockquote>
-<h2 id="3-move-2-two-stage-retrieve-then-rerank"><span class="secnum">3</span>Move 2 — Two-stage retrieve-then-rerank</h2>
-<p>With the index in place, retrieval is cheap enough to <strong>retrieve wide, then rerank</strong>: pull a larger candidate set from pgvector, then let the cross-encoder re-score each (query, chunk) pair and keep the top-k. This is the classic two-stage pattern, and it typically <em>improves grounding quality</em> — which, for legal QA, is the headline metric, not a nicety.</p>
-<p>It also creates a genuine GPU-batching problem worth getting right: the reranker should score the whole candidate set in <strong>one batched, FP16 forward pass</strong>, not a Python loop. The quality lift is measured against the project's <strong>labeled eval suites</strong> (citation-QA, definition-lookup, etc.) — so "better" is a number on fixed cases, not an impression.</p>
-<p><strong>The trade-off:</strong> wider retrieval + reranking adds latency. The writeup-worthy result is "recall vs answer-quality vs added latency," measured — a complete applied-ML story because all three axes are quantified on real evaluation data.</p>
-<h2 id="4-move-3-fp16-embeddings"><span class="secnum">4</span>Move 3 — FP16 embeddings</h2>
-<p>Running bge-m3 in half precision roughly halves memory footprint and bandwidth and speeds the forward pass on modern GPUs, with negligible retrieval-quality loss for this use. The important refinement is recognizing <strong>two distinct regimes</strong>:</p>
-<ul>
-<li><strong>Bulk ingest</strong> (re-embedding the whole corpus): throughput-bound, so large batches and FP16 win big.</li>
-<li><strong>Online query</strong> (embedding one question): latency-bound and dominated by fixed overhead, so the levers are different (a warm model matters more than batch size).</li>
-</ul>
-<p>Treating these separately — rather than applying one batch size everywhere — is what makes the optimization correct rather than cargo-culted. Measured with profiling: the FP32→FP16 throughput delta and a batch-size sweep showing the embedder is memory-bound (as expected for this workload).</p>
-<h2 id="5-results-summary"><span class="secnum">5</span>Results summary</h2>
+<h2 id="1-where-it-started">1. Where it started</h2>
+<p>The search path had three parts that used the GPU or the database heavily: an embedder (bge-m3), a pgvector cosine search, and a cross encoder reranker.</p>
+<p>All three worked. None of them were tuned. Three problems stood out:</p>
+<ol><li><strong>The vector search had no index.</strong> Postgres computed the distance to every row, then sorted. That is fine for a few thousand chunks. It gets slow as the corpus grows.</li><li><strong>The reranker was switched off.</strong> The component that judges relevance best was not being used.</li><li><strong>The embedder ran in full precision.</strong> No FP16 path, so it used more memory bandwidth than it needed to.</li></ol>
+<h2 id="2-move-1-add-a-real-vector-index">2. Move 1: add a real vector index</h2>
+<p>This was the cheapest change and the biggest win. I replaced the full scan with an approximate nearest neighbor index. There are two options in pgvector: IVFFlat, which groups vectors into lists, and HNSW, which builds a graph. Both replace a full scan with a lookup that scales.</p>
+<p><strong>The catch is the word approximate.</strong> These indexes can miss the true nearest neighbor. In most products that is a small quality loss. In a legal product it is not. HieuLuat promises to say "no information" when it cannot find an answer. If the index drops the chunk that held the answer, the system says "no information" when the answer existed. That is a correctness bug, not a speed tuning detail.</p>
+<p>So this is not a free swap. It is a trade off between recall and latency, and the <code>probes</code> or <code>ef_search</code> setting is the dial.</p>
+<p><strong>What I measured.</strong> Query latency as the corpus grows, for full scan, IVFFlat, and HNSW. Then recall at k against latency as I turned the dial. That second curve is the useful one. It shows how much latency buys how much recall, so the operating point can be chosen against the correctness bar instead of guessed.</p>
+<p>The goal was never to use the fastest index. It was to find the point where recall stays high enough to keep the promise. Then take the lowest latency available at that point.</p>
+<h2 id="3-move-2-retrieve-wide-then-rerank">3. Move 2: retrieve wide, then rerank</h2>
+<p>Once the index was in place, retrieval became cheap enough to pull a larger candidate set and rescore it. The cross encoder scores each question and chunk pair, then keeps the best few.</p>
+<p>This is a standard two stage pattern. It usually improves how well answers are grounded in the source, which for legal work is the metric that matters.</p>
+<p>It also creates a GPU batching problem worth solving properly. The reranker should score the whole candidate set in one batched FP16 forward pass, not in a Python loop.</p>
+<p>The cost is latency. Retrieving more and reranking it takes time. So the result to report has three axes: recall, answer quality, and the added milliseconds.</p>
+<h2 id="4-move-3-fp16-embeddings">4. Move 3: FP16 embeddings</h2>
+<p>Running bge-m3 in half precision roughly halves the memory it needs and the bandwidth it uses. On a modern GPU it also speeds up the forward pass. Quality loss for this use is negligible.</p>
+<p>The part worth getting right is that there are two different jobs here, and they have different bottlenecks:</p>
+<ul><li><strong>Bulk ingest</strong>, when embedding again the whole corpus, is limited by throughput. Large batches and FP16 help a lot.</li><li><strong>Online query</strong>, when embedding one question, is limited by latency and fixed overhead. Batch size barely matters. Keeping the model warm matters more.</li></ul>
+<p>Using one batch size for both jobs is the common mistake. I measured them separately: the FP32 to FP16 throughput difference, and a batch size sweep showing the embedder is limited by memory bandwidth, which is what you would expect.</p>
+<h2 id="5-results">5. Results</h2>
+<!--measured:hieuluat-->
+<!--/measured-->
 <table>
-<thead>
-<tr>
-<th>Change</th>
-<th>Effort</th>
-<th>Primary effect</th>
-<th>What I measured</th>
-</tr>
-</thead>
+<thead><tr><th>Change</th><th>Effort</th><th>Effect</th><th>What I measured</th></tr></thead>
 <tbody>
-<tr>
-<td>ANN vector index (IVFFlat/HNSW)</td>
-<td>Low</td>
-<td>Retrieval scales past corpus growth</td>
-<td>Latency vs corpus size; <strong>recall@k vs latency</strong> curve</td>
-</tr>
-<tr>
-<td>Two-stage retrieve-then-rerank</td>
-<td>Medium</td>
-<td>Higher grounding quality</td>
-<td>Recall vs <strong>answer-quality</strong> vs added latency, on eval suites</td>
-</tr>
-<tr>
-<td>FP16 embeddings + regime split</td>
-<td>Low–Med</td>
-<td>Faster embedding, less VRAM</td>
-<td>FP32→FP16 throughput; batch-size sweep; memory-bound confirmation</td>
-</tr>
+<tr><td>Vector index (IVFFlat or HNSW)</td><td>Low</td><td>Search scales as the corpus grows</td><td>Latency against corpus size, recall at k against latency</td></tr>
+<tr><td>Retrieve wide, then rerank</td><td>Medium</td><td>Better grounded answers</td><td>Recall, answer quality, added latency</td></tr>
+<tr><td>FP16 embeddings</td><td>Low</td><td>Faster embedding, less VRAM</td><td>FP32 to FP16 throughput, batch size sweep</td></tr>
 </tbody>
 </table>
-<h2 id="6-future-work"><span class="secnum">6</span>Future work</h2>
-<p>The deepest extension is a <strong>hand-written CUDA kernel</strong> for part of the post-retrieval scoring path (a fused normalize-and-dot over the candidate set), profiled with Nsight against the NumPy and pgvector versions — converting this from "uses the GPU" to "programs the GPU." Even where pgvector wins in production, the kernel is the artifact that proves the capability.</p>
-<h2 id="7-what-id-want-a-reader-to-take-from-this"><span class="secnum">7</span>What I'd want a reader to take from this</h2>
-<p>Not "I added an index." Rather: <strong>I treated a correctness-critical retrieval path as a measured trade-off space</strong> — chose the index operating point against a safety guarantee, quantified the quality lift of reranking on labeled data, and split the embedding work into the regimes that actually have different bottlenecks. The judgment is in the framing; the credibility is in the numbers.</p>
-<p><em>Methodology note: all measurements were taken before-and-after against fixed eval suites; see <a href="03-reproducible-benchmarking.md"><code>03-reproducible-benchmarking.md</code></a>. Specific hardware figures depend on the GPU and are illustrative of the pattern, not absolute.</em></p>
-    </article>
+<h2 id="6-the-recall-ceiling-and-why-reranking-did-not-help">6. The recall ceiling, and why reranking did not help</h2>
+<p>One result in that table looks like a failure. It is worth reading carefully, because the interesting part is which component it actually blames.</p>
+<p>Recall at 10 is 0.75 on the full scan. <strong>The full scan is exhaustive.</strong> It compares the question to every row, so there is no approximation in it to lose recall to. That means 0.75 is not a result about the index at all. It is the ceiling of what this embedding model finds at k equals 10 on this evaluation set. About a quarter of the correct chunks are not in the top ten under any index.</p>
+<p>Read against that ceiling, the index work did exactly what it should. HNSW and tuned IVFFlat both return 0.75, matching the exhaustive scan, while cutting median latency from 6.4 ms to about 1 ms. Untuned IVFFlat sits at 0.70, which is the honest cost of leaving <code>probes</code> at its default and the reason the tuning step was not optional. So the index bought a roughly six times latency reduction at no cost to recall. It did not "stay flat."</p>
+<p><strong>The reranker is a different story, and a genuinely negative result.</strong> Retrieving 50 candidates and rescoring them added 384 ms and changed answer quality by nothing.</p>
+<p>That follows from the ceiling above. A reranker reorders the candidates it is given. It cannot find a chunk that retrieval never returned. If the right chunk is missing from the candidate set, no amount of rescoring brings it back.</p>
+<p><strong>What I have not separated yet.</strong> A flat 0.75 across every configuration is also what a broken evaluation set looks like. The measurement that tells the two apart is recall at 50, which is the candidate set the reranker actually sees.</p>
+<ul><li>If recall at 50 is also around 0.75, the misses are real retrieval misses. Then the fix is upstream of both the index and the reranker: better chunking, hybrid keyword and vector search, or a better embedding model for Vietnamese legal text.</li><li>If recall at 50 is much higher, the candidates were there and the reranker failed to promote them. That is a reranker problem, and an easier one.</li></ul>
+<p>Until that number exists, the honest claim is the narrow one. The index is not the bottleneck, and the reranker is not paying for its 384 ms.</p>
+<p><strong>Status of the reranker:</strong> <code>[TODO: keep or drop, Khoa's call.]</code> If it was dropped, say so plainly. Removing a component that costs 384 ms and buys nothing measurable is good engineering.</p>
+<h2 id="7-future-work">7. Future work</h2>
+<p>The deepest extension is a hand written CUDA kernel for part of the scoring path. It would fuse the normalize and dot product steps over the candidate set. I would profile it with Nsight against the NumPy and pgvector versions. That moves this from using the GPU to programming the GPU.</p>
+<p>One caveat I should state rather than let a reader work out. The scoring path is under 1 ms of a request that currently takes about 385 ms. So a kernel there is a capability demonstration, not an end to end speedup. The honest version of this work says that up front, shows the roofline that predicts the result, and then measures it.</p>
+<h2 id="8-what-i-would-want-a-reader-to-take-from-this">8. What I would want a reader to take from this</h2>
+<p>Not "I added an index." Rather: I treated a correctness critical search path as a set of measured trade offs. I chose the index operating point against a safety promise, and I split the embedding work into the two jobs that actually have different bottlenecks.</p>
+<p>The part I would point at first is section 6. The reranking result was negative. The recall number looked flat enough to be embarrassing. The useful work was figuring out which component the number actually blames, and naming the one measurement that would settle it. That is worth more than another win would have been.</p>
+<p><em>Measurements were taken before and after against fixed evaluation sets. See <a href="03-reproducible-benchmarking.md">reproducible benchmarking</a>. Hardware numbers depend on the GPU. The pattern transfers; the absolute values do not.</em></p>
+</article>
   </main>
 </div>
 
@@ -457,7 +439,7 @@ document.addEventListener('DOMContentLoaded',function(){
     var raw=bl.textContent.replace(/\s+/g,' ').trim();
     if(!raw) return;
     // If the block contains inline markup (bold/italic/code/links), DON'T
-    // flatten it — that would strip the formatting. Instead treat the whole
+    // flatten it, since that would strip the formatting. Instead treat the whole
     // block as a single read-aloud unit, preserving its HTML. We add a
     // transparent wrapper span only for highlight bookkeeping.
     var hasMarkup = bl.querySelector('strong,em,code,a,b,i') !== null;

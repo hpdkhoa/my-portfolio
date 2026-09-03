@@ -3,7 +3,8 @@
 > An AI model is a black box. gen-system makes what the model believes about your code visible.
 > It checks those beliefs against a deterministic graph built from the AST, and lets you correct
 > them. Then it verifies the generated output from outside. It runs entirely on your own machine. The source is
-> proprietary. This page covers the architecture and the reasoning.
+> open under Apache-2.0: `[TODO gen-system repo URL]`. This page covers the architecture and the
+> reasoning.
 
 ---
 
@@ -75,7 +76,7 @@ resolution recall on the committed COBOL baseline fails the gate instead of bein
 **Orchestration.** Retries, structured output constraints, and model keep alive so a model reload
 does not land in the middle of a run.
 
-## Decisions worth defending
+## Design decisions, and why
 
 **Local first.** Privacy and repeatability instead of the convenience of a hosted API. The whole
 pipeline runs on your hardware.
@@ -112,9 +113,11 @@ Go. Local LLMs through Ollama, with a planner model and a coder model. Compiler 
 covering symbol resolution, call graphs, and control flow graphs. Deterministic generation. A
 benchmark harness with regression gating.
 
-## What is not here, and why
+## Where the code is
 
-The implementation, the prompts, the templates, and the configuration are left out on purpose.
+The full source is public under Apache-2.0: `[TODO gen-system repo URL]`. That includes the six
+parsers, the belief layer, the generation pipeline, the benchmark drivers under `bench/`, the
+engineering docs under `docs/`, and the test suite.
 
-The architecture above and the linked writeups are enough to judge the engineering and to talk
-about it in depth. More is available on request.
+Two determinism bugs found during this work are described in the inference writeup, together with
+the tests that fail against the old code. They are in the repo history, not just in the writeup.

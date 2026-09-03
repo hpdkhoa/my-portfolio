@@ -7,7 +7,7 @@
 > [project README](../projects/gen-system/). This writeup covers tuning its inference layer.
 > The quality test is objective: the generated code either builds and passes its tests, or it does
 > not. Section 4 explains why the obvious version of that test is useless, and what replaced it.
-> The code is proprietary.
+> The code is open source under Apache-2.0.
 
 ---
 

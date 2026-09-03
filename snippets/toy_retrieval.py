@@ -1,8 +1,8 @@
 """
-toy_retrieval.py — a teaching toy for the two-stage "retrieve-then-rerank" pattern,
+toy_retrieval.py: a teaching toy for the two stage retrieve then rerank pattern,
 and a demonstration of WHY an approximate index's recall must be measured, not assumed.
 
-This is NOT HieuLuat. There is no bge-m3, no pgvector, no legal data here — just random
+This is NOT HieuLuat. There is no bge-m3, no pgvector, no legal data here, just random
 vectors and a deliberately lossy "approximate" search, so the IDEA is runnable and checkable.
 
 Run:  python3 toy_retrieval.py
@@ -81,7 +81,7 @@ for noise in (0.50, 0.30, 0.20, 0.10, 0.05, 0.00):
     print(f"{noise:>15.2f} | {recall_at_k(approx, truth):>10.2f}")
 print("\nTakeaway: a coarser/cheaper approximate search can DROP the right answer.")
 print("For a legal RAG with a 'no info' guarantee, you pick the operating point")
-print("where recall is high enough that the guarantee holds — then minimize latency.\n")
+print("where recall is high enough that the guarantee holds, then minimize latency.\n")
 
 print("=== Two-stage retrieve-then-rerank ===")
 NOISE = 0.20
@@ -98,5 +98,5 @@ print(f"Two-stage  (retrieve {WIDE_K}, rerank to {TOP_K}): recall@{TOP_K} = "
 print(f"   the wide set captured {len(set(wide) & set(truth))}/{TOP_K} true neighbors; "
       f"the exact reranker surfaces them.")
 print("\nTakeaway: at the SAME first-stage cost, retrieving wide then reranking")
-print("recovers quality that taking the approximate top-K directly would miss —")
+print("recovers quality that taking the approximate top-K directly would miss,")
 print("the core reason the two-stage pattern improves grounding.")

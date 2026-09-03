@@ -1,9 +1,9 @@
 # Engineering Portfolio: Systems, Applied LLMs, and GPU Work
 
-> A showcase of production systems I have designed and built. It presents architecture and
-> measured results rather than full source. The code for HieuLuat and gen-system is proprietary.
-> What is here is the engineering thinking, the design decisions, the benchmarks, and a few small
-> snippets. That is enough to judge the work, and I can go deeper on any of it in conversation.
+> Production systems I have designed and built, presented as architecture and measured results.
+> gen-system is open source under Apache-2.0. HieuLuat is proprietary, so for it the writeup and
+> the measured tables stand in for the code. Every measured number in this repo links to the
+> harness run and the commit that produced it, so the claims can be checked without me in the room.
 
 ---
 
@@ -27,15 +27,18 @@ it, do not assume it.**
 
 ## Why this repo looks like this
 
-This is a closed source showcase, which is normal for production work with IP or sensitive data.
-Each project here is real and shipped. The code that runs it stays private.
+Each project here is real and shipped. One of them, gen-system, is open source. The code, the
+tests, the benchmark drivers, and the engineering docs are all public. The other two stay private.
+HieuLuat holds real legal data. Beastwarden is still in development.
 
-What I publish instead is the part that shows engineering ability: how the system is built, why I
-made the calls I made, and what the numbers say. Every claim in these writeups is something I can
-walk through and defend.
+For the private ones, what is published is the part that shows the engineering: how the system is
+built, why I made the calls I made, and what the numbers say. Every claim points at the code, the
+test, or the measured run behind it.
 
-If you are hiring: the writeups are the fastest way to judge scope and judgment. I am happy to go
-deep on architecture, trade offs, or benchmarks, and to share more under NDA where that fits.
+If you are hiring, start with the writeups. Each one includes a section on something that went
+wrong and what it cost, because that is where judgment shows. Writeup 03 states exactly how every
+number was produced, and gen-system's task set is committed before the first run, so it cannot be
+tuned to the results.
 
 ## The projects
 
@@ -82,6 +85,5 @@ demonstration, not an end to end speedup.
 [hpdkhoa2311@gmail.com](mailto:hpdkhoa2311@gmail.com) · [github.com/hpdkhoa](https://github.com/hpdkhoa)
 
 The writeups, architecture docs, and snippets in this repo are shared for portfolio review. See
-[LICENSE](LICENSE). The HieuLuat and gen-system implementations are proprietary and not included
-here. For a deeper walkthrough, get in touch. More detail is available on request, and under NDA
-where the material is sensitive.
+[LICENSE](LICENSE). gen-system is published separately under Apache-2.0. The HieuLuat
+implementation is proprietary and not included here.

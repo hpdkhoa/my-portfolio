@@ -40,7 +40,7 @@ Seven stages. Each one can be rerun safely and tested on its own.
 7. **Answer.** Generate an answer limited to the retrieved context, with citations, and an explicit
    "no information found" path when retrieval returns nothing useful.
 
-## Decisions worth defending
+## Design decisions, and why
 
 **Chunking on article boundaries, not fixed windows.** A legal answer has to cite a provision. A
 chunk that splits or straddles provisions produces context you cannot cite. So the chunker follows
@@ -76,7 +76,8 @@ Python. PostgreSQL with pgvector. bge-m3 embeddings on GPU. A cross encoder rera
 ## What is not here, and why
 
 The implementation, the legal corpus, the prompts, the configuration, and any secrets are left out
-on purpose. This is a legal product with real data and IP considerations.
+on purpose. This is a legal product with real data.
 
-The architecture above and the linked writeup are enough to judge the engineering. More detail is
-available under NDA.
+What is public is the architecture above and the retrieval writeup. Its numbers come from the
+evaluation harness described in [writeup 03](../../writeups/03-reproducible-benchmarking.md), and
+its section 6 reports the result that did not go the way I wanted.

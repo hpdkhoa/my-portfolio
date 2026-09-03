@@ -21,5 +21,6 @@ python3 toy_retrieval.py
 python3 roofline_demo.py
 ```
 
-> These are teaching examples, not the systems. The real implementations are proprietary. The point
-> is to make the claims in the writeups concrete enough to check.
+> These are teaching examples, not the systems. HieuLuat's implementation is proprietary.
+> gen-system's is open source under Apache-2.0. The point is to make the claims in the writeups
+> concrete enough to check.

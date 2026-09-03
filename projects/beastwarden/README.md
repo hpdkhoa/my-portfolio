@@ -23,7 +23,7 @@
 - **Process:** a roadmap of bounded work packages, and a verify gate that must pass before any
   session ends: typecheck, lint, custom guards, the full test run, and a build
 
-## The ideas worth discussing
+## Design decisions, and why
 
 **A pure deterministic core, enforced by tooling.** The simulation in `src/core` is a pure function
 of state and seed. That is not a style preference. It is what makes a forecast system honest.
@@ -75,7 +75,5 @@ in the simulation core. DragonBones for skeletal animation.
 ## What is not here, and why
 
 The game is in active development, so the source, the content, and the design documents stay
-private for now.
-
-A playable build is available on request. As with the other projects, the architecture above is
-written to be defended line by line in a technical conversation.
+private for now. The claims above describe what the tooling enforces, and the test count is from
+the last verified baseline.
