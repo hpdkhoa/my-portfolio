@@ -13,12 +13,15 @@ I am Khoa. I spent a year at National Australia Bank and two and a half years at
 solution architect, moving legacy systems to cloud native architectures.
 
 The hard part was never the target design. It was that nobody could say for certain what the old
-system actually did.
+system actually did. That is a black box problem. An AI model has the same problem with your code,
+and you usually find out when the output is wrong.
 
-Since November 2025 I have been building my own systems full time. One is a Go engine that reads
-legacy code and generates verified replacements. The other is a Vietnamese legal question answering
-system that refuses to answer without citing the law. Both follow one rule: **measure it, do not
-assume it.**
+Since November 2025 I have been building my own systems full time. One is a Go engine that makes
+an AI model's beliefs about a codebase visible and checkable. It grounds the model in a
+deterministic graph built from the AST, and it verifies the output from outside. Its proving
+ground is legacy code, COBOL and CA Gen included. The other is a Vietnamese legal question
+answering system that refuses to answer without citing the law. Both follow one rule: **measure
+it, do not assume it.**
 
 ---
 
@@ -39,7 +42,7 @@ deep on architecture, trade offs, or benchmarks, and to share more under NDA whe
 | Project | What it is | Stack | Where |
 |---|---|---|---|
 | **HieuLuat** | A Vietnamese legal question answering system that will not answer without grounding | Python, pgvector, GPU embeddings (bge-m3), cross encoder rerank | [projects/hieuluat/](projects/hieuluat/) |
-| **gen-system** | A local code understanding and generation engine with its own benchmark harness | Go, local LLMs via Ollama, compiler accurate analysis | [projects/gen-system/](projects/gen-system/) |
+| **gen-system** | Makes an AI model's beliefs about code visible and checkable, grounds it in a graph built from the AST, and verifies the output from outside | Go, local LLMs via Ollama, deterministic graph RAG | [projects/gen-system/](projects/gen-system/) |
 | **Beastwarden** | A deterministic tactics roguelite with a seeded core and about 2,000 tests. Also a case study in directing AI assisted development | TypeScript, Vite, Pixi, Vitest | [projects/beastwarden/](projects/beastwarden/) |
 | **GPU and inference work** | Indexing, reranking, quantization, batching, KV cache, roofline | Python, CUDA concepts, Nsight method | [writeups/](writeups/) |
 

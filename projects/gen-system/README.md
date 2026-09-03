@@ -1,10 +1,9 @@
 # gen-system: local code understanding and generation
 
-> A code generation engine that runs entirely on your own machine. It pairs compiler accurate
-> program analysis with local LLMs, and holds the output to a real bar: the generated code has to
-> build and pass its tests. It ships with a benchmark harness and regression gates, so quality is
-> measured rather than assumed. The source is proprietary. This page covers the architecture and
-> the reasoning.
+> An AI model is a black box. gen-system makes what the model believes about your code visible.
+> It checks those beliefs against a deterministic graph built from the AST, and lets you correct
+> them. Then it verifies the generated output from outside. It runs entirely on your own machine. The source is
+> proprietary. This page covers the architecture and the reasoning.
 
 ---
 
@@ -25,12 +24,37 @@ goes stale the first time you rerun anything.
 
 ## The idea
 
-Most code generation tooling is a thin wrapper around a remote model, and it trusts what comes
-back. This inverts both halves.
+An AI model is a black box. You cannot see what it believes about your code. You find out when the
+output is wrong, which is the most expensive moment to find out.
 
-It runs locally, so no code leaves the machine. And it treats generation as something to verify and
-measure rather than trust. The organizing principle is that the same input gives the same output,
-and that the quality metric cannot be fudged.
+gen-system attacks that from three sides.
+
+**Make the beliefs visible.** It builds a deterministic graph from the AST: symbols, call edges,
+control flow, and effects. From that graph it derives what it believes about each routine, and it
+prints those beliefs. A local model can propose more. Every proposal is checked against the graph,
+and a proposal that contradicts what the parser saw is marked and never used. You can correct any
+belief. Only human verified beliefs steer generation.
+
+**Ground the model in the graph, not in text.** Context for the model comes from the graph: the
+architecture summary, the related routines, the verified beliefs. This is graph RAG built from the
+AST, not from embeddings of text chunks.
+
+**Verify from outside the box.** The output is compiled on its own, then built and tested, then
+reread by the same deterministic engine that built the graph. That last step catches what a
+compiler cannot: unresolved calls, orphan operations, a read named operation that writes.
+Hallucination is caught by machinery that does not share the model's assumptions.
+
+The proving ground is legacy code. COBOL with copybooks and CA Gen sit next to Go, Java,
+TypeScript, and Python. Legacy is where nobody can say what the system does, and where a wrong
+answer costs the most.
+
+A paper in January 2026, Reliable Graph-RAG for Codebases (arXiv 2601.08773), reached the same
+finding on Java. Deterministic AST graphs ground a model more reliably and more cheaply than LLM
+built graphs or vector search. gen-system's first release was November 2025. It covers six
+languages, and it goes past retrieval into beliefs, generation, and verification. Same idea,
+arrived at independently, taken further in execution.
+
+It also runs locally, so no code leaves the machine, and the same input gives the same output.
 
 ## Architecture
 

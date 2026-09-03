@@ -2,8 +2,9 @@
 
 ### GPU offload, streaming, quantization, and two models sharing one consumer card
 
-> **Context:** gen-system is a local code understanding and generation engine (see
-> [project README](../projects/gen-system/)). This writeup covers tuning its inference layer.
+> **Context:** gen-system makes an AI model's beliefs about code visible and checkable. It grounds
+> the model in a graph built from the AST, and verifies the output from outside. See the
+> [project README](../projects/gen-system/). This writeup covers tuning its inference layer.
 > The quality test is objective: the generated code either builds and passes its tests, or it does
 > not. Section 4 explains why the obvious version of that test is useless, and what replaced it.
 > The code is proprietary.

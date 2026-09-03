@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Engineering Portfolio: Systems, Applied LLMs, GPU Work</title>
-<meta name="description" content="Architecture and measured results for HieuLuat (legal RAG) and gen-system (local-LLM code engine), plus GPU/inference optimization writeups.">
+<meta name="description" content="Architecture and measured results for HieuLuat (legal RAG) and gen-system (making a model's beliefs about code visible and verifiable), plus GPU/inference optimization writeups.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,500&family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -210,8 +210,8 @@ footer a:hover{text-decoration:underline;}
 
       <a class="card" href="projects/gen-system/README.md">
         <h3>gen-system</h3>
-        <div class="tags"><span class="tag">Go</span><span class="tag">Ollama</span><span class="tag">benchmark-gated</span></div>
-        <p>A local-first <strong>code-intelligence &amp; generation</strong> engine pairing compiler-accurate analysis with local LLMs, held to an objective bar: generated code must compile and pass tests.</p>
+        <div class="tags"><span class="tag">Go</span><span class="tag">Ollama</span><span class="tag">benchmark gated</span></div>
+        <p>An AI model is a black box. gen-system makes <strong>what the model believes about your code visible</strong>, grounds it in a deterministic graph built from the AST, and verifies the output from outside. Six languages, COBOL and CA Gen included.</p>
         <span class="go">Architecture &amp; design →</span>
       </a>
 
