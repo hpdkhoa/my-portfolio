@@ -133,6 +133,62 @@ source.
 ## 6. Results
 
 <!--measured:gen-->
+### Measured results
+
+*Rendered from `benchmarks/results/measured.json`. Every number below comes from the project's own harness on the hardware described above.*
+
+**GPU-layer offload: tokens/sec vs VRAM**
+
+| gpu layers | tokens per sec | vram gb | n | tok s min | tok s max |
+|---|---|---|---|---|---|
+| 20 | 7.8 | 4.7 | 3 | n/a | n/a |
+| 30 | 10.1 | 6.4 | 3 | n/a | n/a |
+| 40 | 14.3 | 8.0 | 3 | n/a | n/a |
+| default | 30.8 | 9.5 | 3 | n/a | n/a |
+
+*Measured 2026-09-04 · commit `8040c5370805` · bench/tasks.json (frozen 2026-08-27).*
+
+**Streaming: time-to-first-token**
+
+| config | ttft ms | total latency s | n | ttft min | ttft max |
+|---|---|---|---|---|---|
+| stream off (buffered) | 1889.7 | 1.89 | 3 | 1884.3 | 1899.8 |
+| stream on (NDJSON) | 132.5 | 1.9 | 3 | 125.7 | 145.4 |
+
+*Measured 2026-09-04 · commit `8040c5370805` · bench/tasks.json (frozen 2026-08-27).*
+
+**Quantization sweep: speed vs VRAM vs generation quality**
+
+| quant | tokens per sec | vram gb | stub rate pct | op repair attempts | heal attempts | go test pass | n | tok s min | tok s max |
+|---|---|---|---|---|---|---|---|---|---|
+| Q4_K_M | 122.9 | 11.5 | 98.7 | 47.0 | 0.0 | 5.0 | 3 | 117.6 | 125.6 |
+| Q5_K_M | 113.7 | 12.8 | 82.3 | 40.3 | 0.0 | 5.0 | 3 | 112.3 | 114.5 |
+| Q8_0 | 39.9 | 15.3 | 74.1 | 44.7 | 0.0 | 5.0 | 3 | 39.0 | 41.3 |
+| production | 30.7 | 9.6 | 44.4 | 2.7 | 0.0 | 5.0 | 3 | 30.7 | 30.8 |
+
+*Measured 2026-09-04 · commit `8040c5370805` · bench/tasks.json (frozen 2026-08-27).*
+
+**Two-model serving strategies**
+
+| strategy | reload cost s | tokens per sec | stub rate pct | heal attempts | go test pass | n |
+|---|---|---|---|---|---|---|
+| A-sequential-keepalive | 1.97 | 30.7 | 44.4 | 0.0 | 5.0 | 3 |
+| B-both-resident | 2.1 | 30.8 | 0.0 | 0.0 | 5.0 | 3 |
+| C-single-shared | 2.07 | 30.7 | 8.3 | 0.0 | 5.0 | 3 |
+
+*Measured 2026-09-04 · commit `8040c5370805` · bench/tasks.json (frozen 2026-08-27).*
+
+**Understand benchmark: public repos at pinned commits**
+
+| repo | files | parse errors | internal recall pct | call edges internal | cfgs total | cfgs with issue |
+|---|---|---|---|---|---|---|
+| cobolcraft | 268 | 0 | 100 | 298 | 330 | 0 |
+| go-chi | 84 | 0 | 100 | 1414 | 411 | 0 |
+| gorilla-mux | 17 | 0 | 100 | 288 | 158 | 0 |
+| spf13-cobra | 36 | 0 | 100 | 1001 | 403 | 0 |
+
+*Measured 2026-09-04 · commit `8040c5370805` · bench/tasks.json (frozen 2026-08-27).*
+
 <!--/measured-->
 
 > **Status:** the instrumentation, the GPU controls, the streaming path, and the five drivers are

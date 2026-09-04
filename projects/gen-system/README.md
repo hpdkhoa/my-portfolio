@@ -10,8 +10,8 @@
 
 ## Fast facts
 
-- **Releases shipped:** <!--stat:gen_releases-->23<!--/stat--> since November 2025, working alone
-- **Engine:** Go, <!--stat:gen_go_files--><!--/stat--> source files, <!--stat:gen_go_loc--><!--/stat--> lines
+- **Releases shipped:** <!--stat:gen_releases-->None<!--/stat--> since November 2025, working alone
+- **Engine:** Go, <!--stat:gen_go_files-->464<!--/stat--> source files, <!--stat:gen_go_loc-->97,146<!--/stat--> lines
 - **Languages it reads:** Go, COBOL with copybooks, CA Gen, Java, TypeScript, Python. Exact symbol
   resolution, call graphs, control flow graphs
 - **Inference:** open weight models through Ollama on one RTX 4060 Ti with 16 GB. `qwen3:14b` plans
