@@ -300,6 +300,7 @@ html[data-theme="dark"] .ra-sent.speaking{background:#1d3a36;box-shadow:0 0 0 3p
 <h2 id="7-what-i-would-want-a-reader-to-take-from-this">7. What I would want a reader to take from this</h2>
 <p>Reproducible measurement is not paperwork. It is what makes the rest of this repo evidence instead of assertion.</p>
 <p>I build the baseline first. I commit the task set before the first run, so it cannot be tuned to fit the results. I gate on a quality metric and keep runs repeatable. Then when I say a change made something faster while quality held, there is a number behind every word.</p>
+<p>One honest note on that proof. The public gen-system history starts on the day the repository was prepared for release, so a reader cannot see the weeks before it. What a reader can check is the order inside that history: the commit that adds the task set comes before the commit that adds the results directory. The frozen date is also written inside the task file. Each campaign also ends with an attestation and a manifest. The manifest lists every raw file with its hash. So the numbers in the writeups can be traced to files and not to memory.</p>
 <p>The part that took longest to learn is in section 5. Having a metric is not the same as having a metric that works.</p>
 <p><em>This writeup describes method. The figures live in the project writeups and depend on hardware. The method is the part that transfers.</em></p>
 </article>

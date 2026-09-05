@@ -191,10 +191,48 @@ source.
 
 <!--/measured-->
 
-> **Status:** the instrumentation, the GPU controls, the streaming path, and the five drivers are
-> written and committed. The runs are still pending on the benchmark machine. Tables appear above
-> as the runs land. Until a table appears, treat that move as built and not yet measured. Nothing
-> here quotes a number that a run did not produce.
+### What the numbers say
+
+The campaign ran on 2026-09-04. The raw files, the manifest with a hash per file, and the
+attestation that says what ran and what did not are in the gen-system repository under
+`results/2026-09-04/`. Six things are worth reading out of the tables.
+
+**The quality metric moved.** Stub rate is different for every quantization. That was the
+whole point of replacing compile pass, which was 100 percent by construction. Gate 2 of the plan
+asked for at least one metric that differs across quants. It does.
+
+**The study model wrote very little code that compiled.** DeepSeek Coder V2 Lite at Q4_K_M
+proposed about 24 operations per run and almost every one fell back to a stub after two repair
+rounds. Q8_0 did better, but it still stubbed most of what it wrote. The production coder model
+proposed far fewer operations per run, and about half of them survived. The rows are not on the
+same footing: one rests on about 24 operations, the other on 3. The `ops_total` column is
+there so the reader can see that before comparing stub rates.
+
+**Speed and quality moved in opposite directions.** Q4_K_M was about three times faster than Q8_0
+in tokens per second and used about 4 GB less VRAM. It also produced almost nothing that
+compiled. For this pipeline, on this card, the faster quant is not the cheaper one.
+
+**Strategy B measured nothing, and the table now says so.** The driver set `OLLAMA_KEEP_ALIVE=-1`
+to keep both models resident. The request door sent that as the string "-1". Ollama parses
+strings as durations, rejected every request, and the planner fell back to the offline schema
+for all five ideas. The build was green because the fallback schema always builds. The first
+aggregation showed strategy B with a 0 percent stub rate, which would have been the best row
+in the table. The fix has three parts. The door sends a bare integer as a number. The pipeline marks an
+idea with zero completed model requests as not measured. The aggregator drops such runs and
+counts them in `runs_not_measured`. Strategy B needs a rerun.
+
+**Pinned sampling did not give identical runs.** Temperature 0, seed 42, and top_p 1 were set on
+every request. Two of the three production runs were identical to the token. The third differed.
+Every DeepSeek run differed from the others. That is why every row carries n and a range. A
+determinism pin on a local server is a strong preference, not a proof.
+
+**Two columns never moved, by construction.** `go_test_pass` is 5 of 5 in every row because stubs
+compile and pass. `heal_attempts` is 0 in every row because the operation level gate stubs a
+failing body before the task level loop can fire. Both are reported so nobody reads them as
+results.
+
+The SWE-bench table above, when present, is localization recall. It is not a solve rate. The
+boundary is written in the harness, the attestation, and here.
 
 | Change | Effect | What is measured |
 |---|---|---|

@@ -336,8 +336,70 @@ html[data-theme="dark"] .ra-sent.speaking{background:#1d3a36;box-shadow:0 0 0 3p
 <p>One clarification belongs everywhere this is described. <strong>There is no scheduler.</strong> "Sequential scheduling with keep alive" means Ollama's own keep alive, two model roles, and measurement of what that costs. No scheduling code was written. Claiming otherwise would not survive a reading of the source.</p>
 <h2 id="6-results">6. Results</h2>
 <!--measured:gen-->
+<h3 id="measured-results">Measured results</h3>
+<p><em>Rendered from <code>benchmarks/results/measured.json</code>. Every number below comes from the project's own harness on the hardware described above.</em></p>
+<p><strong>GPU-layer offload: tokens/sec vs VRAM</strong></p>
+<table>
+<thead><tr><th>gpu layers</th><th>tokens per sec</th><th>vram gb</th><th>n</th><th>tok s min</th><th>tok s max</th></tr></thead>
+<tbody>
+<tr><td>20</td><td>7.8</td><td>4.7</td><td>3</td><td>n/a</td><td>n/a</td></tr>
+<tr><td>30</td><td>10.1</td><td>6.4</td><td>3</td><td>n/a</td><td>n/a</td></tr>
+<tr><td>40</td><td>14.3</td><td>8.0</td><td>3</td><td>n/a</td><td>n/a</td></tr>
+<tr><td>default</td><td>30.8</td><td>9.5</td><td>3</td><td>n/a</td><td>n/a</td></tr>
+</tbody>
+</table>
+<p><em>Measured 2026-09-04 · commit <code>8040c5370805</code> · bench/tasks.json (frozen 2026-08-27).</em></p>
+<p><strong>Streaming: time-to-first-token</strong></p>
+<table>
+<thead><tr><th>config</th><th>ttft ms</th><th>total latency s</th><th>n</th><th>ttft min</th><th>ttft max</th></tr></thead>
+<tbody>
+<tr><td>stream off (buffered)</td><td>1889.7</td><td>1.89</td><td>3</td><td>1884.3</td><td>1899.8</td></tr>
+<tr><td>stream on (NDJSON)</td><td>132.5</td><td>1.9</td><td>3</td><td>125.7</td><td>145.4</td></tr>
+</tbody>
+</table>
+<p><em>Measured 2026-09-04 · commit <code>8040c5370805</code> · bench/tasks.json (frozen 2026-08-27).</em></p>
+<p><strong>Quantization sweep: speed vs VRAM vs generation quality</strong></p>
+<table>
+<thead><tr><th>quant</th><th>tokens per sec</th><th>vram gb</th><th>stub rate pct</th><th>op repair attempts</th><th>heal attempts</th><th>go test pass</th><th>n</th><th>tok s min</th><th>tok s max</th></tr></thead>
+<tbody>
+<tr><td>Q4_K_M</td><td>122.9</td><td>11.5</td><td>98.7</td><td>47.0</td><td>0.0</td><td>5.0</td><td>3</td><td>117.6</td><td>125.6</td></tr>
+<tr><td>Q5_K_M</td><td>113.7</td><td>12.8</td><td>82.3</td><td>40.3</td><td>0.0</td><td>5.0</td><td>3</td><td>112.3</td><td>114.5</td></tr>
+<tr><td>Q8_0</td><td>39.9</td><td>15.3</td><td>74.1</td><td>44.7</td><td>0.0</td><td>5.0</td><td>3</td><td>39.0</td><td>41.3</td></tr>
+<tr><td>production</td><td>30.7</td><td>9.6</td><td>44.4</td><td>2.7</td><td>0.0</td><td>5.0</td><td>3</td><td>30.7</td><td>30.8</td></tr>
+</tbody>
+</table>
+<p><em>Measured 2026-09-04 · commit <code>8040c5370805</code> · bench/tasks.json (frozen 2026-08-27).</em></p>
+<p><strong>Two-model serving strategies</strong></p>
+<table>
+<thead><tr><th>strategy</th><th>reload cost s</th><th>tokens per sec</th><th>stub rate pct</th><th>heal attempts</th><th>go test pass</th><th>n</th></tr></thead>
+<tbody>
+<tr><td>A-sequential-keepalive</td><td>1.97</td><td>30.7</td><td>44.4</td><td>0.0</td><td>5.0</td><td>3</td></tr>
+<tr><td>B-both-resident</td><td>2.1</td><td>30.8</td><td>0.0</td><td>0.0</td><td>5.0</td><td>3</td></tr>
+<tr><td>C-single-shared</td><td>2.07</td><td>30.7</td><td>8.3</td><td>0.0</td><td>5.0</td><td>3</td></tr>
+</tbody>
+</table>
+<p><em>Measured 2026-09-04 · commit <code>8040c5370805</code> · bench/tasks.json (frozen 2026-08-27).</em></p>
+<p><strong>Understand benchmark: public repos at pinned commits</strong></p>
+<table>
+<thead><tr><th>repo</th><th>files</th><th>parse errors</th><th>internal recall pct</th><th>call edges internal</th><th>cfgs total</th><th>cfgs with issue</th></tr></thead>
+<tbody>
+<tr><td>cobolcraft</td><td>268</td><td>0</td><td>100</td><td>298</td><td>330</td><td>0</td></tr>
+<tr><td>go-chi</td><td>84</td><td>0</td><td>100</td><td>1414</td><td>411</td><td>0</td></tr>
+<tr><td>gorilla-mux</td><td>17</td><td>0</td><td>100</td><td>288</td><td>158</td><td>0</td></tr>
+<tr><td>spf13-cobra</td><td>36</td><td>0</td><td>100</td><td>1001</td><td>403</td><td>0</td></tr>
+</tbody>
+</table>
+<p><em>Measured 2026-09-04 · commit <code>8040c5370805</code> · bench/tasks.json (frozen 2026-08-27).</em></p>
 <!--/measured-->
-<blockquote><p><strong>Status:</strong> the instrumentation, the GPU controls, the streaming path, and the five drivers are written and committed. The runs are still pending on the benchmark machine. Tables appear above as the runs land. Until a table appears, treat that move as built and not yet measured. Nothing here quotes a number that a run did not produce.</p></blockquote>
+<h3 id="what-the-numbers-say">What the numbers say</h3>
+<p>The campaign ran on 2026-09-04. The raw files, the manifest with a hash per file, and the attestation that says what ran and what did not are in the gen-system repository under <code>results/2026-09-04/</code>. Six things are worth reading out of the tables.</p>
+<p><strong>The quality metric moved.</strong> Stub rate is different for every quantization. That was the whole point of replacing compile pass, which was 100 percent by construction. Gate 2 of the plan asked for at least one metric that differs across quants. It does.</p>
+<p><strong>The study model wrote very little code that compiled.</strong> DeepSeek Coder V2 Lite at Q4_K_M proposed about 24 operations per run and almost every one fell back to a stub after two repair rounds. Q8_0 did better, but it still stubbed most of what it wrote. The production coder model proposed far fewer operations per run, and about half of them survived. The rows are not on the same footing: one rests on about 24 operations, the other on 3. The <code>ops_total</code> column is there so the reader can see that before comparing stub rates.</p>
+<p><strong>Speed and quality moved in opposite directions.</strong> Q4_K_M was about three times faster than Q8_0 in tokens per second and used about 4 GB less VRAM. It also produced almost nothing that compiled. For this pipeline, on this card, the faster quant is not the cheaper one.</p>
+<p><strong>Strategy B measured nothing, and the table now says so.</strong> The driver set <code>OLLAMA_KEEP_ALIVE=-1</code> to keep both models resident. The request door sent that as the string "-1". Ollama parses strings as durations, rejected every request, and the planner fell back to the offline schema for all five ideas. The build was green because the fallback schema always builds. The first aggregation showed strategy B with a 0 percent stub rate, which would have been the best row in the table. The fix has three parts. The door sends a bare integer as a number. The pipeline marks an idea with zero completed model requests as not measured. The aggregator drops such runs and counts them in <code>runs_not_measured</code>. Strategy B needs a rerun.</p>
+<p><strong>Pinned sampling did not give identical runs.</strong> Temperature 0, seed 42, and top_p 1 were set on every request. Two of the three production runs were identical to the token. The third differed. Every DeepSeek run differed from the others. That is why every row carries n and a range. A determinism pin on a local server is a strong preference, not a proof.</p>
+<p><strong>Two columns never moved, by construction.</strong> <code>go_test_pass</code> is 5 of 5 in every row because stubs compile and pass. <code>heal_attempts</code> is 0 in every row because the operation level gate stubs a failing body before the task level loop can fire. Both are reported so nobody reads them as results.</p>
+<p>The SWE-bench table above, when present, is localization recall. It is not a solve rate. The boundary is written in the harness, the attestation, and here.</p>
 <table>
 <thead><tr><th>Change</th><th>Effect</th><th>What is measured</th></tr></thead>
 <tbody>

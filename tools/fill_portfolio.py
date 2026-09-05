@@ -227,7 +227,10 @@ def main():
               render_table(gs.get("streaming", {}), "Streaming: time-to-first-token"),
               render_table(gs.get("quantization_sweep", {}), "Quantization sweep: speed vs VRAM vs generation quality"),
               render_table(gs.get("two_model_strategies", {}), "Two-model serving strategies"),
-              render_table(gs.get("understand_public_repos", {}), "Understand benchmark: public repos at pinned commits")]
+              render_table(gs.get("understand_public_repos", {}), "Understand benchmark: public repos at pinned commits"),
+              render_table(gs.get("swebench_verified_localization", {}), "SWE-bench Verified: localization recall (not a solve rate)"),
+              render_table(gs.get("swebench_verified_localization_by_repo", {}), "SWE-bench Verified: localization recall by repository"),
+              render_table(gs.get("swebench_verified_repos", {}), "SWE-bench Verified: can the parsers read the repositories")]
     inject_measured(w02, "gen", blocks)
 
     # ---------- 5. environment capture ----------

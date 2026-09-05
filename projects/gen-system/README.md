@@ -96,6 +96,19 @@ When a model written operation fails the compile gate, it is replaced with an ex
 What gets measured now is how much real logic survived the gate rather than falling back to a stub,
 plus the repair counts. Finding that out and writing it down is the more useful half of this.
 
+**Team conventions as a checked contract.** A team can hand the generator a style profile: naming,
+folder layout, required and banned patterns, size limits, loop style, imports. The profile can be
+written by hand or derived from an existing repository through the symbol graph, with the evidence
+count kept next to every derived rule. The rules go into every prompt the coder model sees. After
+generation, the same rules are checked over the output by the parser, with no model involved. An
+operation that compiles but breaks a rule goes back to the model with the rule named. Style never
+turns logic into a stub. Only the compile gate does that.
+
+**A certificate for every campaign.** Each benchmark run ends with an attestation and a manifest.
+The attestation says what ran, on which commit and machine, which runs were dropped as not measured
+and why, and what did not run. The manifest lists every raw file with its hash. A number in a
+writeup can be traced back to those files.
+
 ## Results
 
 The inference tuning work covers GPU layer offload, output streaming, quantization treated as a

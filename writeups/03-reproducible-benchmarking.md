@@ -84,6 +84,13 @@ I build the baseline first. I commit the task set before the first run, so it ca
 fit the results. I gate on a quality metric and keep runs repeatable. Then when I say a change made
 something faster while quality held, there is a number behind every word.
 
+One honest note on that proof. The public gen-system history starts on the day the repository was
+prepared for release, so a reader cannot see the weeks before it. What a reader can check is the
+order inside that history: the commit that adds the task set comes before the commit that adds the
+results directory. The frozen date is also written inside the task file. Each campaign also ends
+with an attestation and a manifest. The manifest lists every raw file with its hash. So the
+numbers in the writeups can be traced to files and not to memory.
+
 The part that took longest to learn is in section 5. Having a metric is not the same as having a
 metric that works.
 
