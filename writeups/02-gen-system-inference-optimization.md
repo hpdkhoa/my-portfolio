@@ -170,13 +170,13 @@ source.
 
 **Two-model serving strategies**
 
-| strategy | reload cost s | tokens per sec | stub rate pct | heal attempts | go test pass | n |
-|---|---|---|---|---|---|---|
-| A-sequential-keepalive | 1.97 | 30.7 | 44.4 | 0.0 | 5.0 | 3 |
-| B-both-resident | 2.1 | 30.8 | 0.0 | 0.0 | 5.0 | 3 |
-| C-single-shared | 2.07 | 30.7 | 8.3 | 0.0 | 5.0 | 3 |
+| strategy | reload cost s | tokens per sec | ops total | stub rate pct | heal attempts | go test pass | n | runs not measured |
+|---|---|---|---|---|---|---|---|---|
+| A-sequential-keepalive | 1.97 | 30.8 | 3.0 | 66.7 | 0.0 | 5.0 | 3 | 0 |
+| B-both-resident | 1.97 | 30.8 | 3.0 | 22.2 | 0.0 | 5.0 | 3 | 0 |
+| C-single-shared | 1.96 | 30.8 | 3.0 | 0.0 | 0.0 | 5.0 | 3 | 0 |
 
-*Measured 2026-09-04 · commit `8040c5370805` · bench/tasks.json (frozen 2026-08-27).*
+*Measured 2026-09-06 · commit `b503f324690b` · bench/tasks.json (frozen 2026-08-27).*
 
 **Understand benchmark: public repos at pinned commits**
 
@@ -188,6 +188,25 @@ source.
 | spf13-cobra | 36 | 0 | 100 | 1001 | 403 | 0 |
 
 *Measured 2026-09-04 · commit `8040c5370805` · bench/tasks.json (frozen 2026-08-27).*
+
+**SWE-bench Verified: localization recall (not a solve rate)**
+
+| hops | file recall mean | hit rate pct | mean neighbourhood files | median neighbourhood files | n tasks |
+|---|---|---|---|---|---|
+| 0 | 0.615 | 63.3 | 201.933 | 92.5 | 60 |
+| 1 | 0.615 | 63.3 | 285.75 | 221.0 | 60 |
+| 2 | 0.674 | 70.0 | 513.05 | 511.0 | 60 |
+
+*Measured 2026-09-06 · commit `b503f324690b` · SWE-bench Verified, princeton-nlp, frozen sha256 fcef3a49f31e.*
+
+**SWE-bench Verified: can the parsers read the repositories**
+
+| repo | files parsed | parse errors | internal recall pct | call edges internal |
+|---|---|---|---|---|
+| astropy/astropy | 786 | 0 | 100 | 27412 |
+| django/django | 2572 | 0 | 100 | 55126 |
+
+*Measured 2026-09-06 · commit `b503f324690b` · SWE-bench Verified, princeton-nlp, frozen sha256 fcef3a49f31e.*
 
 <!--/measured-->
 

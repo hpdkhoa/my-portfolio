@@ -371,14 +371,14 @@ html[data-theme="dark"] .ra-sent.speaking{background:#1d3a36;box-shadow:0 0 0 3p
 <p><em>Measured 2026-09-04 · commit <code>8040c5370805</code> · bench/tasks.json (frozen 2026-08-27).</em></p>
 <p><strong>Two-model serving strategies</strong></p>
 <table>
-<thead><tr><th>strategy</th><th>reload cost s</th><th>tokens per sec</th><th>stub rate pct</th><th>heal attempts</th><th>go test pass</th><th>n</th></tr></thead>
+<thead><tr><th>strategy</th><th>reload cost s</th><th>tokens per sec</th><th>ops total</th><th>stub rate pct</th><th>heal attempts</th><th>go test pass</th><th>n</th><th>runs not measured</th></tr></thead>
 <tbody>
-<tr><td>A-sequential-keepalive</td><td>1.97</td><td>30.7</td><td>44.4</td><td>0.0</td><td>5.0</td><td>3</td></tr>
-<tr><td>B-both-resident</td><td>2.1</td><td>30.8</td><td>0.0</td><td>0.0</td><td>5.0</td><td>3</td></tr>
-<tr><td>C-single-shared</td><td>2.07</td><td>30.7</td><td>8.3</td><td>0.0</td><td>5.0</td><td>3</td></tr>
+<tr><td>A-sequential-keepalive</td><td>1.97</td><td>30.8</td><td>3.0</td><td>66.7</td><td>0.0</td><td>5.0</td><td>3</td><td>0</td></tr>
+<tr><td>B-both-resident</td><td>1.97</td><td>30.8</td><td>3.0</td><td>22.2</td><td>0.0</td><td>5.0</td><td>3</td><td>0</td></tr>
+<tr><td>C-single-shared</td><td>1.96</td><td>30.8</td><td>3.0</td><td>0.0</td><td>0.0</td><td>5.0</td><td>3</td><td>0</td></tr>
 </tbody>
 </table>
-<p><em>Measured 2026-09-04 · commit <code>8040c5370805</code> · bench/tasks.json (frozen 2026-08-27).</em></p>
+<p><em>Measured 2026-09-06 · commit <code>b503f324690b</code> · bench/tasks.json (frozen 2026-08-27).</em></p>
 <p><strong>Understand benchmark: public repos at pinned commits</strong></p>
 <table>
 <thead><tr><th>repo</th><th>files</th><th>parse errors</th><th>internal recall pct</th><th>call edges internal</th><th>cfgs total</th><th>cfgs with issue</th></tr></thead>
@@ -390,6 +390,25 @@ html[data-theme="dark"] .ra-sent.speaking{background:#1d3a36;box-shadow:0 0 0 3p
 </tbody>
 </table>
 <p><em>Measured 2026-09-04 · commit <code>8040c5370805</code> · bench/tasks.json (frozen 2026-08-27).</em></p>
+<p><strong>SWE-bench Verified: localization recall (not a solve rate)</strong></p>
+<table>
+<thead><tr><th>hops</th><th>file recall mean</th><th>hit rate pct</th><th>mean neighbourhood files</th><th>median neighbourhood files</th><th>n tasks</th></tr></thead>
+<tbody>
+<tr><td>0</td><td>0.615</td><td>63.3</td><td>201.933</td><td>92.5</td><td>60</td></tr>
+<tr><td>1</td><td>0.615</td><td>63.3</td><td>285.75</td><td>221.0</td><td>60</td></tr>
+<tr><td>2</td><td>0.674</td><td>70.0</td><td>513.05</td><td>511.0</td><td>60</td></tr>
+</tbody>
+</table>
+<p><em>Measured 2026-09-06 · commit <code>b503f324690b</code> · SWE-bench Verified, princeton-nlp, frozen sha256 fcef3a49f31e.</em></p>
+<p><strong>SWE-bench Verified: can the parsers read the repositories</strong></p>
+<table>
+<thead><tr><th>repo</th><th>files parsed</th><th>parse errors</th><th>internal recall pct</th><th>call edges internal</th></tr></thead>
+<tbody>
+<tr><td>astropy/astropy</td><td>786</td><td>0</td><td>100</td><td>27412</td></tr>
+<tr><td>django/django</td><td>2572</td><td>0</td><td>100</td><td>55126</td></tr>
+</tbody>
+</table>
+<p><em>Measured 2026-09-06 · commit <code>b503f324690b</code> · SWE-bench Verified, princeton-nlp, frozen sha256 fcef3a49f31e.</em></p>
 <!--/measured-->
 <h3 id="what-the-numbers-say">What the numbers say</h3>
 <p>The campaign ran on 2026-09-04. The raw files, the manifest with a hash per file, and the attestation that says what ran and what did not are in the gen-system repository under <code>results/2026-09-04/</code>. Six things are worth reading out of the tables.</p>
